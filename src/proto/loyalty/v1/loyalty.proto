@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package loyalty.v1;
+
+option csharp_namespace = "Cinema.Infrastructure.Grpc.Loyalty";
+
+service LoyaltyService {
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+  rpc AddBonuses(AddBonusesRequest) returns (AddBonusesResponse);
+}
+
+message GetBalanceRequest {
+  string user_id = 1;
+}
+
+message GetBalanceResponse {
+  int32 points = 1;
+  string tier = 2;
+}
+
+message AddBonusesRequest {
+  string user_id = 1;
+  double order_amount = 2;
+}
+
+message AddBonusesResponse {
+  bool success = 1;
+  int32 new_balance = 2;
+}

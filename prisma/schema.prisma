@@ -1,0 +1,28 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+  moluleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model LoyaltyProfile {
+  id String @id @default(uuid())
+  userId String @unique @map("user_id")
+  points Int @default(0)
+  tier String @default("Bronze")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("loyalty_profiles")
+  @@index([userId])
+
+} 
