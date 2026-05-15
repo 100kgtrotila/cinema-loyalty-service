@@ -10,7 +10,7 @@ async function bootstrap() {
       transport: Transport.GRPC,
       options: {
         package: 'loyalty.v1',
-        protoPath: join(__dirname, '/proto/loyalty/v1/loyalty.proto'),
+        protoPath: join(process.cwd(), 'src/proto/loyalty/v1/loyalty.proto'),
         url: '0.0.0.0:50051',
       },
     },
