@@ -44,3 +44,13 @@ export { Prisma }
  * 
  */
 export type LoyaltyProfile = Prisma.LoyaltyProfileModel
+/**
+ * Model ProcessedEvent
+ * 
+ */
+export type ProcessedEvent = Prisma.ProcessedEventModel
+/**
+ * Model PointsTransaction
+ * 
+ */
+export type PointsTransaction = Prisma.PointsTransactionModel

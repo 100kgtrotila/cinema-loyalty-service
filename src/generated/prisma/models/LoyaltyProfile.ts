@@ -27,18 +27,31 @@ export type AggregateLoyaltyProfile = {
 }
 
 export type LoyaltyProfileAvgAggregateOutputType = {
-  points: number | null
+  balance: number | null
+  lifetimePoints: number | null
+  yearPoints: number | null
+  yearVisits: number | null
 }
 
 export type LoyaltyProfileSumAggregateOutputType = {
-  points: number | null
+  balance: number | null
+  lifetimePoints: number | null
+  yearPoints: number | null
+  yearVisits: number | null
 }
 
 export type LoyaltyProfileMinAggregateOutputType = {
   id: string | null
   userId: string | null
-  points: number | null
-  tier: $Enums.LoyaltyTier | null
+  tier: $Enums.Tier | null
+  balance: number | null
+  lifetimePoints: number | null
+  yearPoints: number | null
+  yearVisits: number | null
+  tierExpiresAt: Date | null
+  lastActivityAt: Date | null
+  balanceExpiresAt: Date | null
+  birthdayDate: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -46,8 +59,15 @@ export type LoyaltyProfileMinAggregateOutputType = {
 export type LoyaltyProfileMaxAggregateOutputType = {
   id: string | null
   userId: string | null
-  points: number | null
-  tier: $Enums.LoyaltyTier | null
+  tier: $Enums.Tier | null
+  balance: number | null
+  lifetimePoints: number | null
+  yearPoints: number | null
+  yearVisits: number | null
+  tierExpiresAt: Date | null
+  lastActivityAt: Date | null
+  balanceExpiresAt: Date | null
+  birthdayDate: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -55,8 +75,15 @@ export type LoyaltyProfileMaxAggregateOutputType = {
 export type LoyaltyProfileCountAggregateOutputType = {
   id: number
   userId: number
-  points: number
   tier: number
+  balance: number
+  lifetimePoints: number
+  yearPoints: number
+  yearVisits: number
+  tierExpiresAt: number
+  lastActivityAt: number
+  balanceExpiresAt: number
+  birthdayDate: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -64,18 +91,31 @@ export type LoyaltyProfileCountAggregateOutputType = {
 
 
 export type LoyaltyProfileAvgAggregateInputType = {
-  points?: true
+  balance?: true
+  lifetimePoints?: true
+  yearPoints?: true
+  yearVisits?: true
 }
 
 export type LoyaltyProfileSumAggregateInputType = {
-  points?: true
+  balance?: true
+  lifetimePoints?: true
+  yearPoints?: true
+  yearVisits?: true
 }
 
 export type LoyaltyProfileMinAggregateInputType = {
   id?: true
   userId?: true
-  points?: true
   tier?: true
+  balance?: true
+  lifetimePoints?: true
+  yearPoints?: true
+  yearVisits?: true
+  tierExpiresAt?: true
+  lastActivityAt?: true
+  balanceExpiresAt?: true
+  birthdayDate?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -83,8 +123,15 @@ export type LoyaltyProfileMinAggregateInputType = {
 export type LoyaltyProfileMaxAggregateInputType = {
   id?: true
   userId?: true
-  points?: true
   tier?: true
+  balance?: true
+  lifetimePoints?: true
+  yearPoints?: true
+  yearVisits?: true
+  tierExpiresAt?: true
+  lastActivityAt?: true
+  balanceExpiresAt?: true
+  birthdayDate?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -92,8 +139,15 @@ export type LoyaltyProfileMaxAggregateInputType = {
 export type LoyaltyProfileCountAggregateInputType = {
   id?: true
   userId?: true
-  points?: true
   tier?: true
+  balance?: true
+  lifetimePoints?: true
+  yearPoints?: true
+  yearVisits?: true
+  tierExpiresAt?: true
+  lastActivityAt?: true
+  balanceExpiresAt?: true
+  birthdayDate?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -188,8 +242,15 @@ export type LoyaltyProfileGroupByArgs<ExtArgs extends runtime.Types.Extensions.I
 export type LoyaltyProfileGroupByOutputType = {
   id: string
   userId: string
-  points: number
-  tier: $Enums.LoyaltyTier
+  tier: $Enums.Tier
+  balance: number
+  lifetimePoints: number
+  yearPoints: number
+  yearVisits: number
+  tierExpiresAt: Date | null
+  lastActivityAt: Date | null
+  balanceExpiresAt: Date | null
+  birthdayDate: Date | null
   createdAt: Date
   updatedAt: Date
   _count: LoyaltyProfileCountAggregateOutputType | null
@@ -218,10 +279,17 @@ export type LoyaltyProfileWhereInput = {
   AND?: Prisma.LoyaltyProfileWhereInput | Prisma.LoyaltyProfileWhereInput[]
   OR?: Prisma.LoyaltyProfileWhereInput[]
   NOT?: Prisma.LoyaltyProfileWhereInput | Prisma.LoyaltyProfileWhereInput[]
-  id?: Prisma.StringFilter<"LoyaltyProfile"> | string
-  userId?: Prisma.StringFilter<"LoyaltyProfile"> | string
-  points?: Prisma.IntFilter<"LoyaltyProfile"> | number
-  tier?: Prisma.EnumLoyaltyTierFilter<"LoyaltyProfile"> | $Enums.LoyaltyTier
+  id?: Prisma.UuidFilter<"LoyaltyProfile"> | string
+  userId?: Prisma.UuidFilter<"LoyaltyProfile"> | string
+  tier?: Prisma.EnumTierFilter<"LoyaltyProfile"> | $Enums.Tier
+  balance?: Prisma.IntFilter<"LoyaltyProfile"> | number
+  lifetimePoints?: Prisma.IntFilter<"LoyaltyProfile"> | number
+  yearPoints?: Prisma.IntFilter<"LoyaltyProfile"> | number
+  yearVisits?: Prisma.IntFilter<"LoyaltyProfile"> | number
+  tierExpiresAt?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
+  lastActivityAt?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
+  balanceExpiresAt?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
+  birthdayDate?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"LoyaltyProfile"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"LoyaltyProfile"> | Date | string
 }
@@ -229,8 +297,15 @@ export type LoyaltyProfileWhereInput = {
 export type LoyaltyProfileOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
-  points?: Prisma.SortOrder
   tier?: Prisma.SortOrder
+  balance?: Prisma.SortOrder
+  lifetimePoints?: Prisma.SortOrder
+  yearPoints?: Prisma.SortOrder
+  yearVisits?: Prisma.SortOrder
+  tierExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  balanceExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  birthdayDate?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -241,8 +316,15 @@ export type LoyaltyProfileWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.LoyaltyProfileWhereInput | Prisma.LoyaltyProfileWhereInput[]
   OR?: Prisma.LoyaltyProfileWhereInput[]
   NOT?: Prisma.LoyaltyProfileWhereInput | Prisma.LoyaltyProfileWhereInput[]
-  points?: Prisma.IntFilter<"LoyaltyProfile"> | number
-  tier?: Prisma.EnumLoyaltyTierFilter<"LoyaltyProfile"> | $Enums.LoyaltyTier
+  tier?: Prisma.EnumTierFilter<"LoyaltyProfile"> | $Enums.Tier
+  balance?: Prisma.IntFilter<"LoyaltyProfile"> | number
+  lifetimePoints?: Prisma.IntFilter<"LoyaltyProfile"> | number
+  yearPoints?: Prisma.IntFilter<"LoyaltyProfile"> | number
+  yearVisits?: Prisma.IntFilter<"LoyaltyProfile"> | number
+  tierExpiresAt?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
+  lastActivityAt?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
+  balanceExpiresAt?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
+  birthdayDate?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"LoyaltyProfile"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"LoyaltyProfile"> | Date | string
 }, "id" | "userId">
@@ -250,8 +332,15 @@ export type LoyaltyProfileWhereUniqueInput = Prisma.AtLeast<{
 export type LoyaltyProfileOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
-  points?: Prisma.SortOrder
   tier?: Prisma.SortOrder
+  balance?: Prisma.SortOrder
+  lifetimePoints?: Prisma.SortOrder
+  yearPoints?: Prisma.SortOrder
+  yearVisits?: Prisma.SortOrder
+  tierExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  balanceExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  birthdayDate?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.LoyaltyProfileCountOrderByAggregateInput
@@ -265,10 +354,17 @@ export type LoyaltyProfileScalarWhereWithAggregatesInput = {
   AND?: Prisma.LoyaltyProfileScalarWhereWithAggregatesInput | Prisma.LoyaltyProfileScalarWhereWithAggregatesInput[]
   OR?: Prisma.LoyaltyProfileScalarWhereWithAggregatesInput[]
   NOT?: Prisma.LoyaltyProfileScalarWhereWithAggregatesInput | Prisma.LoyaltyProfileScalarWhereWithAggregatesInput[]
-  id?: Prisma.StringWithAggregatesFilter<"LoyaltyProfile"> | string
-  userId?: Prisma.StringWithAggregatesFilter<"LoyaltyProfile"> | string
-  points?: Prisma.IntWithAggregatesFilter<"LoyaltyProfile"> | number
-  tier?: Prisma.EnumLoyaltyTierWithAggregatesFilter<"LoyaltyProfile"> | $Enums.LoyaltyTier
+  id?: Prisma.UuidWithAggregatesFilter<"LoyaltyProfile"> | string
+  userId?: Prisma.UuidWithAggregatesFilter<"LoyaltyProfile"> | string
+  tier?: Prisma.EnumTierWithAggregatesFilter<"LoyaltyProfile"> | $Enums.Tier
+  balance?: Prisma.IntWithAggregatesFilter<"LoyaltyProfile"> | number
+  lifetimePoints?: Prisma.IntWithAggregatesFilter<"LoyaltyProfile"> | number
+  yearPoints?: Prisma.IntWithAggregatesFilter<"LoyaltyProfile"> | number
+  yearVisits?: Prisma.IntWithAggregatesFilter<"LoyaltyProfile"> | number
+  tierExpiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"LoyaltyProfile"> | Date | string | null
+  lastActivityAt?: Prisma.DateTimeNullableWithAggregatesFilter<"LoyaltyProfile"> | Date | string | null
+  balanceExpiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"LoyaltyProfile"> | Date | string | null
+  birthdayDate?: Prisma.DateTimeNullableWithAggregatesFilter<"LoyaltyProfile"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"LoyaltyProfile"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"LoyaltyProfile"> | Date | string
 }
@@ -276,8 +372,15 @@ export type LoyaltyProfileScalarWhereWithAggregatesInput = {
 export type LoyaltyProfileCreateInput = {
   id?: string
   userId: string
-  points?: number
-  tier?: $Enums.LoyaltyTier
+  tier?: $Enums.Tier
+  balance?: number
+  lifetimePoints?: number
+  yearPoints?: number
+  yearVisits?: number
+  tierExpiresAt?: Date | string | null
+  lastActivityAt?: Date | string | null
+  balanceExpiresAt?: Date | string | null
+  birthdayDate?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -285,8 +388,15 @@ export type LoyaltyProfileCreateInput = {
 export type LoyaltyProfileUncheckedCreateInput = {
   id?: string
   userId: string
-  points?: number
-  tier?: $Enums.LoyaltyTier
+  tier?: $Enums.Tier
+  balance?: number
+  lifetimePoints?: number
+  yearPoints?: number
+  yearVisits?: number
+  tierExpiresAt?: Date | string | null
+  lastActivityAt?: Date | string | null
+  balanceExpiresAt?: Date | string | null
+  birthdayDate?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -294,8 +404,15 @@ export type LoyaltyProfileUncheckedCreateInput = {
 export type LoyaltyProfileUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
-  points?: Prisma.IntFieldUpdateOperationsInput | number
-  tier?: Prisma.EnumLoyaltyTierFieldUpdateOperationsInput | $Enums.LoyaltyTier
+  tier?: Prisma.EnumTierFieldUpdateOperationsInput | $Enums.Tier
+  balance?: Prisma.IntFieldUpdateOperationsInput | number
+  lifetimePoints?: Prisma.IntFieldUpdateOperationsInput | number
+  yearPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  yearVisits?: Prisma.IntFieldUpdateOperationsInput | number
+  tierExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActivityAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  balanceExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birthdayDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -303,8 +420,15 @@ export type LoyaltyProfileUpdateInput = {
 export type LoyaltyProfileUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
-  points?: Prisma.IntFieldUpdateOperationsInput | number
-  tier?: Prisma.EnumLoyaltyTierFieldUpdateOperationsInput | $Enums.LoyaltyTier
+  tier?: Prisma.EnumTierFieldUpdateOperationsInput | $Enums.Tier
+  balance?: Prisma.IntFieldUpdateOperationsInput | number
+  lifetimePoints?: Prisma.IntFieldUpdateOperationsInput | number
+  yearPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  yearVisits?: Prisma.IntFieldUpdateOperationsInput | number
+  tierExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActivityAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  balanceExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birthdayDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -312,8 +436,15 @@ export type LoyaltyProfileUncheckedUpdateInput = {
 export type LoyaltyProfileCreateManyInput = {
   id?: string
   userId: string
-  points?: number
-  tier?: $Enums.LoyaltyTier
+  tier?: $Enums.Tier
+  balance?: number
+  lifetimePoints?: number
+  yearPoints?: number
+  yearVisits?: number
+  tierExpiresAt?: Date | string | null
+  lastActivityAt?: Date | string | null
+  balanceExpiresAt?: Date | string | null
+  birthdayDate?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -321,8 +452,15 @@ export type LoyaltyProfileCreateManyInput = {
 export type LoyaltyProfileUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
-  points?: Prisma.IntFieldUpdateOperationsInput | number
-  tier?: Prisma.EnumLoyaltyTierFieldUpdateOperationsInput | $Enums.LoyaltyTier
+  tier?: Prisma.EnumTierFieldUpdateOperationsInput | $Enums.Tier
+  balance?: Prisma.IntFieldUpdateOperationsInput | number
+  lifetimePoints?: Prisma.IntFieldUpdateOperationsInput | number
+  yearPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  yearVisits?: Prisma.IntFieldUpdateOperationsInput | number
+  tierExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActivityAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  balanceExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birthdayDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -330,8 +468,15 @@ export type LoyaltyProfileUpdateManyMutationInput = {
 export type LoyaltyProfileUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
-  points?: Prisma.IntFieldUpdateOperationsInput | number
-  tier?: Prisma.EnumLoyaltyTierFieldUpdateOperationsInput | $Enums.LoyaltyTier
+  tier?: Prisma.EnumTierFieldUpdateOperationsInput | $Enums.Tier
+  balance?: Prisma.IntFieldUpdateOperationsInput | number
+  lifetimePoints?: Prisma.IntFieldUpdateOperationsInput | number
+  yearPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  yearVisits?: Prisma.IntFieldUpdateOperationsInput | number
+  tierExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActivityAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  balanceExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birthdayDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -339,21 +484,38 @@ export type LoyaltyProfileUncheckedUpdateManyInput = {
 export type LoyaltyProfileCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
-  points?: Prisma.SortOrder
   tier?: Prisma.SortOrder
+  balance?: Prisma.SortOrder
+  lifetimePoints?: Prisma.SortOrder
+  yearPoints?: Prisma.SortOrder
+  yearVisits?: Prisma.SortOrder
+  tierExpiresAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  balanceExpiresAt?: Prisma.SortOrder
+  birthdayDate?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type LoyaltyProfileAvgOrderByAggregateInput = {
-  points?: Prisma.SortOrder
+  balance?: Prisma.SortOrder
+  lifetimePoints?: Prisma.SortOrder
+  yearPoints?: Prisma.SortOrder
+  yearVisits?: Prisma.SortOrder
 }
 
 export type LoyaltyProfileMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
-  points?: Prisma.SortOrder
   tier?: Prisma.SortOrder
+  balance?: Prisma.SortOrder
+  lifetimePoints?: Prisma.SortOrder
+  yearPoints?: Prisma.SortOrder
+  yearVisits?: Prisma.SortOrder
+  tierExpiresAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  balanceExpiresAt?: Prisma.SortOrder
+  birthdayDate?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -361,18 +523,32 @@ export type LoyaltyProfileMaxOrderByAggregateInput = {
 export type LoyaltyProfileMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
-  points?: Prisma.SortOrder
   tier?: Prisma.SortOrder
+  balance?: Prisma.SortOrder
+  lifetimePoints?: Prisma.SortOrder
+  yearPoints?: Prisma.SortOrder
+  yearVisits?: Prisma.SortOrder
+  tierExpiresAt?: Prisma.SortOrder
+  lastActivityAt?: Prisma.SortOrder
+  balanceExpiresAt?: Prisma.SortOrder
+  birthdayDate?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type LoyaltyProfileSumOrderByAggregateInput = {
-  points?: Prisma.SortOrder
+  balance?: Prisma.SortOrder
+  lifetimePoints?: Prisma.SortOrder
+  yearPoints?: Prisma.SortOrder
+  yearVisits?: Prisma.SortOrder
 }
 
 export type StringFieldUpdateOperationsInput = {
   set?: string
+}
+
+export type EnumTierFieldUpdateOperationsInput = {
+  set?: $Enums.Tier
 }
 
 export type IntFieldUpdateOperationsInput = {
@@ -383,8 +559,8 @@ export type IntFieldUpdateOperationsInput = {
   divide?: number
 }
 
-export type EnumLoyaltyTierFieldUpdateOperationsInput = {
-  set?: $Enums.LoyaltyTier
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
 }
 
 export type DateTimeFieldUpdateOperationsInput = {
@@ -396,8 +572,15 @@ export type DateTimeFieldUpdateOperationsInput = {
 export type LoyaltyProfileSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   userId?: boolean
-  points?: boolean
   tier?: boolean
+  balance?: boolean
+  lifetimePoints?: boolean
+  yearPoints?: boolean
+  yearVisits?: boolean
+  tierExpiresAt?: boolean
+  lastActivityAt?: boolean
+  balanceExpiresAt?: boolean
+  birthdayDate?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["loyaltyProfile"]>
@@ -405,8 +588,15 @@ export type LoyaltyProfileSelect<ExtArgs extends runtime.Types.Extensions.Intern
 export type LoyaltyProfileSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   userId?: boolean
-  points?: boolean
   tier?: boolean
+  balance?: boolean
+  lifetimePoints?: boolean
+  yearPoints?: boolean
+  yearVisits?: boolean
+  tierExpiresAt?: boolean
+  lastActivityAt?: boolean
+  balanceExpiresAt?: boolean
+  birthdayDate?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["loyaltyProfile"]>
@@ -414,8 +604,15 @@ export type LoyaltyProfileSelectCreateManyAndReturn<ExtArgs extends runtime.Type
 export type LoyaltyProfileSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   userId?: boolean
-  points?: boolean
   tier?: boolean
+  balance?: boolean
+  lifetimePoints?: boolean
+  yearPoints?: boolean
+  yearVisits?: boolean
+  tierExpiresAt?: boolean
+  lastActivityAt?: boolean
+  balanceExpiresAt?: boolean
+  birthdayDate?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["loyaltyProfile"]>
@@ -423,13 +620,20 @@ export type LoyaltyProfileSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
 export type LoyaltyProfileSelectScalar = {
   id?: boolean
   userId?: boolean
-  points?: boolean
   tier?: boolean
+  balance?: boolean
+  lifetimePoints?: boolean
+  yearPoints?: boolean
+  yearVisits?: boolean
+  tierExpiresAt?: boolean
+  lastActivityAt?: boolean
+  balanceExpiresAt?: boolean
+  birthdayDate?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type LoyaltyProfileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "points" | "tier" | "createdAt" | "updatedAt", ExtArgs["result"]["loyaltyProfile"]>
+export type LoyaltyProfileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "tier" | "balance" | "lifetimePoints" | "yearPoints" | "yearVisits" | "tierExpiresAt" | "lastActivityAt" | "balanceExpiresAt" | "birthdayDate" | "createdAt" | "updatedAt", ExtArgs["result"]["loyaltyProfile"]>
 
 export type $LoyaltyProfilePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "LoyaltyProfile"
@@ -437,8 +641,15 @@ export type $LoyaltyProfilePayload<ExtArgs extends runtime.Types.Extensions.Inte
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     userId: string
-    points: number
-    tier: $Enums.LoyaltyTier
+    tier: $Enums.Tier
+    balance: number
+    lifetimePoints: number
+    yearPoints: number
+    yearVisits: number
+    tierExpiresAt: Date | null
+    lastActivityAt: Date | null
+    balanceExpiresAt: Date | null
+    birthdayDate: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["loyaltyProfile"]>
@@ -866,8 +1077,15 @@ export interface Prisma__LoyaltyProfileClient<T, Null = never, ExtArgs extends r
 export interface LoyaltyProfileFieldRefs {
   readonly id: Prisma.FieldRef<"LoyaltyProfile", 'String'>
   readonly userId: Prisma.FieldRef<"LoyaltyProfile", 'String'>
-  readonly points: Prisma.FieldRef<"LoyaltyProfile", 'Int'>
-  readonly tier: Prisma.FieldRef<"LoyaltyProfile", 'LoyaltyTier'>
+  readonly tier: Prisma.FieldRef<"LoyaltyProfile", 'Tier'>
+  readonly balance: Prisma.FieldRef<"LoyaltyProfile", 'Int'>
+  readonly lifetimePoints: Prisma.FieldRef<"LoyaltyProfile", 'Int'>
+  readonly yearPoints: Prisma.FieldRef<"LoyaltyProfile", 'Int'>
+  readonly yearVisits: Prisma.FieldRef<"LoyaltyProfile", 'Int'>
+  readonly tierExpiresAt: Prisma.FieldRef<"LoyaltyProfile", 'DateTime'>
+  readonly lastActivityAt: Prisma.FieldRef<"LoyaltyProfile", 'DateTime'>
+  readonly balanceExpiresAt: Prisma.FieldRef<"LoyaltyProfile", 'DateTime'>
+  readonly birthdayDate: Prisma.FieldRef<"LoyaltyProfile", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"LoyaltyProfile", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"LoyaltyProfile", 'DateTime'>
 }

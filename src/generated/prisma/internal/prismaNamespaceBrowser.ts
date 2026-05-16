@@ -51,7 +51,9 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
-  LoyaltyProfile: 'LoyaltyProfile'
+  LoyaltyProfile: 'LoyaltyProfile',
+  ProcessedEvent: 'ProcessedEvent',
+  PointsTransaction: 'PointsTransaction'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -73,13 +75,42 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const LoyaltyProfileScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
-  points: 'points',
   tier: 'tier',
+  balance: 'balance',
+  lifetimePoints: 'lifetimePoints',
+  yearPoints: 'yearPoints',
+  yearVisits: 'yearVisits',
+  tierExpiresAt: 'tierExpiresAt',
+  lastActivityAt: 'lastActivityAt',
+  balanceExpiresAt: 'balanceExpiresAt',
+  birthdayDate: 'birthdayDate',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type LoyaltyProfileScalarFieldEnum = (typeof LoyaltyProfileScalarFieldEnum)[keyof typeof LoyaltyProfileScalarFieldEnum]
+
+
+export const ProcessedEventScalarFieldEnum = {
+  eventId: 'eventId',
+  processedAt: 'processedAt'
+} as const
+
+export type ProcessedEventScalarFieldEnum = (typeof ProcessedEventScalarFieldEnum)[keyof typeof ProcessedEventScalarFieldEnum]
+
+
+export const PointsTransactionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  points: 'points',
+  balanceAfter: 'balanceAfter',
+  orderId: 'orderId',
+  description: 'description',
+  createdAt: 'createdAt'
+} as const
+
+export type PointsTransactionScalarFieldEnum = (typeof PointsTransactionScalarFieldEnum)[keyof typeof PointsTransactionScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -96,4 +127,12 @@ export const QueryMode = {
 } as const
 
 export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
+
+
+export const NullsOrder = {
+  first: 'first',
+  last: 'last'
+} as const
+
+export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
 

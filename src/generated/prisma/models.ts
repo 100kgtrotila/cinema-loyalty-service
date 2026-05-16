@@ -9,4 +9,6 @@
  * 🟢 You can import this file directly.
  */
 export type * from './models/LoyaltyProfile.js'
+export type * from './models/ProcessedEvent.js'
+export type * from './models/PointsTransaction.js'
 export type * from './commonInputTypes.js'
