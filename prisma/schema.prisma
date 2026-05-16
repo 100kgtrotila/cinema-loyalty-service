@@ -8,24 +8,54 @@ datasource db {
   provider = "postgresql"
 }
 
-enum LoyaltyTier {
+enum Tier {
   BRONZE
   SILVER
   GOLD
-  PLATINUM 
 }
 
 model LoyaltyProfile {
-  id String @id @default(uuid())
-  userId String @unique @map("user_id")
-  points Int @default(0)
-  tier LoyaltyTier @default(BRONZE)
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @unique @map("user_id") @db.Uuid
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  tier               Tier      @default(BRONZE)
+  
+  balance            Int       @default(0)
+  lifetimePoints     Int       @default(0) @map("lifetime_points")
+  yearPoints         Int       @default(0) @map("year_points")
+  yearVisits         Int       @default(0) @map("year_visits")
 
-  @@map("loyalty_profiles")
+  tierExpiresAt      DateTime? @map("tier_expires_at") @db.Timestamptz()
+  lastActivityAt     DateTime? @map("last_activity_at") @db.Timestamptz()
+  balanceExpiresAt   DateTime? @map("balance_expires_at") @db.Timestamptz()
+  birthdayDate       DateTime? @map("birthday_date") @db.Date
+
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
   @@index([userId])
+  @@index([tier])
+  @@map("loyalty_profiles")
+}
 
-} 
+model ProcessedEvent {
+  eventId     String   @id @map("event_id") @db.Uuid
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz()
 
+  @@map("processed_events")
+}
+
+model PointsTransaction {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  type         String   @db.VarChar(20)
+  points       Int
+  balanceAfter Int      @map("balance_after")
+  orderId      String?  @map("order_id") @db.Uuid
+  description  String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("points_transactions")
+}
