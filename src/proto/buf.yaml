@@ -1,4 +1,16 @@
-version: v1
+version: v2
+
+modules:
+  - path: proto
+
 lint:
   use:
     - STANDARD
+  except:
+    # Якщо .NET генерує код і csharp_namespace — залишаємо
+    # Якщо хочеш прибрати це правило бо buf скаржиться на option:
+    # - FILE_OPTIONS_REQUIRE_GO_PACKAGE
+
+breaking:
+  use:
+    - FILE
