@@ -1,7 +1,7 @@
 import { Controller, Logger } from '@nestjs/common';
 import {
   Ctx,
-  MessagePattern,
+  EventPattern, // ← ЗМІНИТИ з MessagePattern на EventPattern
   Payload,
   RmqContext,
 } from '@nestjs/microservices';
@@ -17,32 +17,33 @@ export class TicketPurchasedConsumer {
 
   constructor(private readonly loyaltyService: LoyaltyService) {}
 
-  @MessagePattern('ticket.purchased')
+  @EventPattern('TicketPurchased')
   async handle(
     @Payload() data: unknown,
     @Ctx() ctx: RmqContext,
   ): Promise<void> {
     const channel = ctx.getChannelRef() as Channel;
-    const message = ctx.getMessage() as ConsumeMessage;
+    const originalMsg = ctx.getMessage() as ConsumeMessage;
 
-    const dto = plainToInstance(TicketPurchasedDto, data);
-    const errors = await validate(dto);
-
-    if (errors.length > 0) {
-      this.logger.warn(
-        `Invalid message rejected: ${JSON.stringify(errors.map((e) => e.constraints))}`,
-      );
-      channel.nack(message, false, false);
-      return;
-    }
+    this.logger.log('TicketPurchasedConsumer received message');
+    this.logger.debug('Raw payload:', JSON.stringify(data));
 
     try {
+      const dto = plainToInstance(TicketPurchasedDto, data);
+      const errors = await validate(dto);
+
+      if (errors.length > 0) {
+        this.logger.error('Validation failed:', errors);
+        channel.nack(originalMsg, false, false);
+        return;
+      }
+
       await this.loyaltyService.processTicketPurchase(dto);
-      channel.ack(message);
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Processing failed, nacking for retry: ${msg}`);
-      channel.nack(message, false, true);
+      channel.ack(originalMsg);
+      this.logger.log(`Points processed for userId: ${dto.userId}`);
+    } catch (error) {
+      this.logger.error('Failed to process TicketPurchased:', error);
+      channel.nack(originalMsg, false, true);
     }
   }
 }
