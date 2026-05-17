@@ -8,6 +8,8 @@ export const LOYALTY_RULES = {
   BIRTHDAY_WEEK_RADIUS_DAYS: 3,
   SPECIAL_EVENT_MULTIPLIER: 2.0,
 
+  MINIMUM_DEDUCTION: 75,
+
   TIER_THRESHOLDS: {
     [Tier.GOLD]: { visits: 20, points: 5000 },
     [Tier.SILVER]: { visits: 8, points: 2000 },
