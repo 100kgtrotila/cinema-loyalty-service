@@ -4,6 +4,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { LoyaltyService } from './loyalty.service';
 import { TicketPurchasedConsumer } from './consumers/ticket-purchased.consumer';
 import { TierUpgradeListener } from './notifications/tier-upgrade.listener';
+import { LoyaltyController } from './loyalty.controller';
 
 @Module({
   imports: [
@@ -21,6 +22,6 @@ import { TierUpgradeListener } from './notifications/tier-upgrade.listener';
     ]),
   ],
   providers: [LoyaltyService, TierUpgradeListener],
-  controllers: [TicketPurchasedConsumer],
+  controllers: [TicketPurchasedConsumer, LoyaltyController],
 })
 export class LoyaltyModule {}
