@@ -19,10 +19,11 @@ async function bootstrap() {
     transport: Transport.RMQ,
     options: {
       urls: ['amqp://localhost:5672'],
-      queue: 'loyalty_queue',
+      queue: 'loyalty_ticket_purchased',
       queueOptions: {
         durable: true,
       },
+      noAck: false,
     },
   });
 
