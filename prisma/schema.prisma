@@ -30,8 +30,12 @@ model LoyaltyProfile {
   balanceExpiresAt   DateTime? @map("balance_expires_at") @db.Timestamptz()
   birthdayDate       DateTime? @map("birthday_date") @db.Date
 
+  goldUpgradeUsedMonth String? @map("gold_upgrade_used_month") @db.VarChar(7)
+
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  
 
   @@index([userId])
   @@index([tier])
