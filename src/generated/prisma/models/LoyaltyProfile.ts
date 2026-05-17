@@ -52,6 +52,7 @@ export type LoyaltyProfileMinAggregateOutputType = {
   lastActivityAt: Date | null
   balanceExpiresAt: Date | null
   birthdayDate: Date | null
+  goldUpgradeUsedMonth: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -68,6 +69,7 @@ export type LoyaltyProfileMaxAggregateOutputType = {
   lastActivityAt: Date | null
   balanceExpiresAt: Date | null
   birthdayDate: Date | null
+  goldUpgradeUsedMonth: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -84,6 +86,7 @@ export type LoyaltyProfileCountAggregateOutputType = {
   lastActivityAt: number
   balanceExpiresAt: number
   birthdayDate: number
+  goldUpgradeUsedMonth: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -116,6 +119,7 @@ export type LoyaltyProfileMinAggregateInputType = {
   lastActivityAt?: true
   balanceExpiresAt?: true
   birthdayDate?: true
+  goldUpgradeUsedMonth?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -132,6 +136,7 @@ export type LoyaltyProfileMaxAggregateInputType = {
   lastActivityAt?: true
   balanceExpiresAt?: true
   birthdayDate?: true
+  goldUpgradeUsedMonth?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -148,6 +153,7 @@ export type LoyaltyProfileCountAggregateInputType = {
   lastActivityAt?: true
   balanceExpiresAt?: true
   birthdayDate?: true
+  goldUpgradeUsedMonth?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -251,6 +257,7 @@ export type LoyaltyProfileGroupByOutputType = {
   lastActivityAt: Date | null
   balanceExpiresAt: Date | null
   birthdayDate: Date | null
+  goldUpgradeUsedMonth: string | null
   createdAt: Date
   updatedAt: Date
   _count: LoyaltyProfileCountAggregateOutputType | null
@@ -290,6 +297,7 @@ export type LoyaltyProfileWhereInput = {
   lastActivityAt?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
   balanceExpiresAt?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
   birthdayDate?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
+  goldUpgradeUsedMonth?: Prisma.StringNullableFilter<"LoyaltyProfile"> | string | null
   createdAt?: Prisma.DateTimeFilter<"LoyaltyProfile"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"LoyaltyProfile"> | Date | string
 }
@@ -306,6 +314,7 @@ export type LoyaltyProfileOrderByWithRelationInput = {
   lastActivityAt?: Prisma.SortOrderInput | Prisma.SortOrder
   balanceExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   birthdayDate?: Prisma.SortOrderInput | Prisma.SortOrder
+  goldUpgradeUsedMonth?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -325,6 +334,7 @@ export type LoyaltyProfileWhereUniqueInput = Prisma.AtLeast<{
   lastActivityAt?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
   balanceExpiresAt?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
   birthdayDate?: Prisma.DateTimeNullableFilter<"LoyaltyProfile"> | Date | string | null
+  goldUpgradeUsedMonth?: Prisma.StringNullableFilter<"LoyaltyProfile"> | string | null
   createdAt?: Prisma.DateTimeFilter<"LoyaltyProfile"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"LoyaltyProfile"> | Date | string
 }, "id" | "userId">
@@ -341,6 +351,7 @@ export type LoyaltyProfileOrderByWithAggregationInput = {
   lastActivityAt?: Prisma.SortOrderInput | Prisma.SortOrder
   balanceExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   birthdayDate?: Prisma.SortOrderInput | Prisma.SortOrder
+  goldUpgradeUsedMonth?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.LoyaltyProfileCountOrderByAggregateInput
@@ -365,6 +376,7 @@ export type LoyaltyProfileScalarWhereWithAggregatesInput = {
   lastActivityAt?: Prisma.DateTimeNullableWithAggregatesFilter<"LoyaltyProfile"> | Date | string | null
   balanceExpiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"LoyaltyProfile"> | Date | string | null
   birthdayDate?: Prisma.DateTimeNullableWithAggregatesFilter<"LoyaltyProfile"> | Date | string | null
+  goldUpgradeUsedMonth?: Prisma.StringNullableWithAggregatesFilter<"LoyaltyProfile"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"LoyaltyProfile"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"LoyaltyProfile"> | Date | string
 }
@@ -381,6 +393,7 @@ export type LoyaltyProfileCreateInput = {
   lastActivityAt?: Date | string | null
   balanceExpiresAt?: Date | string | null
   birthdayDate?: Date | string | null
+  goldUpgradeUsedMonth?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -397,6 +410,7 @@ export type LoyaltyProfileUncheckedCreateInput = {
   lastActivityAt?: Date | string | null
   balanceExpiresAt?: Date | string | null
   birthdayDate?: Date | string | null
+  goldUpgradeUsedMonth?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -413,6 +427,7 @@ export type LoyaltyProfileUpdateInput = {
   lastActivityAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   balanceExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   birthdayDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  goldUpgradeUsedMonth?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -429,6 +444,7 @@ export type LoyaltyProfileUncheckedUpdateInput = {
   lastActivityAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   balanceExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   birthdayDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  goldUpgradeUsedMonth?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -445,6 +461,7 @@ export type LoyaltyProfileCreateManyInput = {
   lastActivityAt?: Date | string | null
   balanceExpiresAt?: Date | string | null
   birthdayDate?: Date | string | null
+  goldUpgradeUsedMonth?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -461,6 +478,7 @@ export type LoyaltyProfileUpdateManyMutationInput = {
   lastActivityAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   balanceExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   birthdayDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  goldUpgradeUsedMonth?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -477,6 +495,7 @@ export type LoyaltyProfileUncheckedUpdateManyInput = {
   lastActivityAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   balanceExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   birthdayDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  goldUpgradeUsedMonth?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -493,6 +512,7 @@ export type LoyaltyProfileCountOrderByAggregateInput = {
   lastActivityAt?: Prisma.SortOrder
   balanceExpiresAt?: Prisma.SortOrder
   birthdayDate?: Prisma.SortOrder
+  goldUpgradeUsedMonth?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -516,6 +536,7 @@ export type LoyaltyProfileMaxOrderByAggregateInput = {
   lastActivityAt?: Prisma.SortOrder
   balanceExpiresAt?: Prisma.SortOrder
   birthdayDate?: Prisma.SortOrder
+  goldUpgradeUsedMonth?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -532,6 +553,7 @@ export type LoyaltyProfileMinOrderByAggregateInput = {
   lastActivityAt?: Prisma.SortOrder
   balanceExpiresAt?: Prisma.SortOrder
   birthdayDate?: Prisma.SortOrder
+  goldUpgradeUsedMonth?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -563,6 +585,10 @@ export type NullableDateTimeFieldUpdateOperationsInput = {
   set?: Date | string | null
 }
 
+export type NullableStringFieldUpdateOperationsInput = {
+  set?: string | null
+}
+
 export type DateTimeFieldUpdateOperationsInput = {
   set?: Date | string
 }
@@ -581,6 +607,7 @@ export type LoyaltyProfileSelect<ExtArgs extends runtime.Types.Extensions.Intern
   lastActivityAt?: boolean
   balanceExpiresAt?: boolean
   birthdayDate?: boolean
+  goldUpgradeUsedMonth?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["loyaltyProfile"]>
@@ -597,6 +624,7 @@ export type LoyaltyProfileSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   lastActivityAt?: boolean
   balanceExpiresAt?: boolean
   birthdayDate?: boolean
+  goldUpgradeUsedMonth?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["loyaltyProfile"]>
@@ -613,6 +641,7 @@ export type LoyaltyProfileSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   lastActivityAt?: boolean
   balanceExpiresAt?: boolean
   birthdayDate?: boolean
+  goldUpgradeUsedMonth?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["loyaltyProfile"]>
@@ -629,11 +658,12 @@ export type LoyaltyProfileSelectScalar = {
   lastActivityAt?: boolean
   balanceExpiresAt?: boolean
   birthdayDate?: boolean
+  goldUpgradeUsedMonth?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type LoyaltyProfileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "tier" | "balance" | "lifetimePoints" | "yearPoints" | "yearVisits" | "tierExpiresAt" | "lastActivityAt" | "balanceExpiresAt" | "birthdayDate" | "createdAt" | "updatedAt", ExtArgs["result"]["loyaltyProfile"]>
+export type LoyaltyProfileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "tier" | "balance" | "lifetimePoints" | "yearPoints" | "yearVisits" | "tierExpiresAt" | "lastActivityAt" | "balanceExpiresAt" | "birthdayDate" | "goldUpgradeUsedMonth" | "createdAt" | "updatedAt", ExtArgs["result"]["loyaltyProfile"]>
 
 export type $LoyaltyProfilePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "LoyaltyProfile"
@@ -650,6 +680,7 @@ export type $LoyaltyProfilePayload<ExtArgs extends runtime.Types.Extensions.Inte
     lastActivityAt: Date | null
     balanceExpiresAt: Date | null
     birthdayDate: Date | null
+    goldUpgradeUsedMonth: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["loyaltyProfile"]>
@@ -1086,6 +1117,7 @@ export interface LoyaltyProfileFieldRefs {
   readonly lastActivityAt: Prisma.FieldRef<"LoyaltyProfile", 'DateTime'>
   readonly balanceExpiresAt: Prisma.FieldRef<"LoyaltyProfile", 'DateTime'>
   readonly birthdayDate: Prisma.FieldRef<"LoyaltyProfile", 'DateTime'>
+  readonly goldUpgradeUsedMonth: Prisma.FieldRef<"LoyaltyProfile", 'String'>
   readonly createdAt: Prisma.FieldRef<"LoyaltyProfile", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"LoyaltyProfile", 'DateTime'>
 }
