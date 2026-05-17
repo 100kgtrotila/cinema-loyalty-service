@@ -3,13 +3,19 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Tier } from 'src/generated/prisma/enums';
 import { TicketPurchasedDto } from './dto/ticked-purchased.dto';
 import EventEmitter2 from 'eventemitter2';
-import { LoyaltyProfileSnapshot } from 'src/loyalty/interfaces/loyalty-profile.interface';
 import { EventType } from './enums/event-type.enum';
 import { PointsTransactionType } from './constants/points-transaction-type.enum';
 import { LOYALTY_RULES, TIME_CONSTANTS } from './constants/loyalty.constants';
-import { GetBalanceResponse } from './interfaces/get-balance-response.interface';
 import { RpcException } from '@nestjs/microservices';
 import { GrpcStatus } from 'src/common/grpc-status';
+import {
+  DeductPointsResponse,
+  GetBalanceResponse,
+  GetFullProfileResponse,
+  UseGoldUpgradeResponse,
+} from './interfaces/loyalty-response.interface';
+import { LoyaltyProfileSnapshot } from './interfaces/loyalty-profile.inteface';
+import { LoyaltyMapper } from 'src/utils/loyalty.mapper';
 
 @Injectable()
 export class LoyaltyService {
@@ -32,13 +38,192 @@ export class LoyaltyService {
     });
 
     if (!profile) {
+      return {
+        balance: 0,
+        lifetimePoints: 0,
+        yearPoints: 0,
+        tier: LoyaltyMapper.toGrpcTier(Tier.BRONZE),
+      };
+    }
+
+    return {
+      balance: profile.balance,
+      lifetimePoints: profile.lifetimePoints,
+      yearPoints: profile.yearPoints,
+      tier: LoyaltyMapper.toGrpcTier(profile.tier),
+    };
+  }
+
+  async getFullProfile(userId: string): Promise<GetFullProfileResponse> {
+    const profile = await this.prisma.loyaltyProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!profile) {
+      return {
+        userId,
+        tier: LoyaltyMapper.toGrpcTier(Tier.BRONZE),
+        balance: 0,
+        lifetimePoints: 0,
+        yearPoints: 0,
+        yearVisits: 0,
+        tierExpiresAt: '',
+        balanceExpiresAt: '',
+        isBirthdayWeek: false,
+        goldUpgradeAvailable: false,
+      };
+    }
+
+    const now = new Date();
+    const goldUpgradeMonth = `${now.getFullYear()}-${now.getMonth() + 1}`;
+
+    return {
+      userId: profile.userId,
+      tier: LoyaltyMapper.toGrpcTier(profile.tier),
+      balance: profile.balance,
+      lifetimePoints: profile.lifetimePoints,
+      yearPoints: profile.yearPoints,
+      yearVisits: profile.yearVisits,
+      tierExpiresAt: profile.tierExpiresAt?.toISOString() ?? '',
+      balanceExpiresAt: profile.balanceExpiresAt?.toISOString() ?? '',
+      isBirthdayWeek: this.isBirthdayWeek(profile.birthdayDate),
+      goldUpgradeAvailable:
+        profile.tier === Tier.GOLD &&
+        profile.goldUpgradeUsedMonth !== goldUpgradeMonth,
+    };
+  }
+
+  async deductPoints(
+    userId: string,
+    amount: number,
+    orderId: string,
+    idempotencyKey: string,
+  ): Promise<DeductPointsResponse> {
+    if (amount < LOYALTY_RULES.MINIMUM_DEDUCTION) {
+      return {
+        success: false,
+        balanceAfter: 0,
+        errorMessage: 'Minimum deduction is 75 points',
+      };
+    }
+
+    try {
+      const result = await this.prisma.$transaction(async (trx) => {
+        const alreadyProcessed = await trx.processedEvent.findUnique({
+          where: { eventId: idempotencyKey },
+        });
+
+        if (alreadyProcessed) {
+          const profile = await trx.loyaltyProfile.findFirstOrThrow({
+            where: { userId },
+            select: { balance: true },
+          });
+          return {
+            success: true,
+            balanceAfter: profile.balance,
+            errorMessage: '',
+          };
+        }
+
+        const profile = await trx.loyaltyProfile.findUnique({
+          where: { userId },
+        });
+
+        if (!profile) {
+          throw new RpcException({
+            code: GrpcStatus.NOT_FOUND,
+            message: `Profile not found for user ${userId}`,
+          });
+        }
+
+        if (profile.balance < amount) {
+          return {
+            success: false,
+            balanceAfter: profile.balance,
+            errorMessage: 'Insufficient points balance',
+          };
+        }
+
+        const newBalance = profile.balance - amount;
+
+        await trx.loyaltyProfile.update({
+          where: { id: profile.id },
+          data: {
+            balance: newBalance,
+            lastActivityAt: new Date(),
+          },
+        });
+
+        await trx.pointsTransaction.create({
+          data: {
+            userId,
+            type: 'BURN_DISCOUNT',
+            points: -amount,
+            balanceAfter: newBalance,
+            orderId,
+            description: `Redeemed ${amount} pts for order ${orderId}`,
+          },
+        });
+
+        await trx.processedEvent.create({
+          data: { eventId: idempotencyKey },
+        });
+
+        return { success: true, balanceAfter: newBalance, errorMessage: '' };
+      });
+
+      return result;
+    } catch (error: unknown) {
+      if (error instanceof RpcException) throw error;
+
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`DeductPoints failed for user ${userId}: ${message}`);
+
+      return {
+        success: false,
+        balanceAfter: 0,
+        errorMessage: 'Internal error',
+      };
+    }
+  }
+
+  async useGoldUpgrade(
+    userId: string,
+    orderId: string,
+  ): Promise<UseGoldUpgradeResponse> {
+    const profile = await this.prisma.loyaltyProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!profile) {
       throw new RpcException({
         code: GrpcStatus.NOT_FOUND,
-        message: `Loyalty profile not found for user ${userId}`,
+        message: `Profile not found for user ${userId}`,
       });
     }
 
-    return profile;
+    if (profile.tier !== Tier.GOLD) {
+      return { success: false, errorMessage: 'User is not GOLD tier' };
+    }
+
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${now.getMonth() + 1}`;
+
+    if (profile.goldUpgradeUsedMonth === currentMonth) {
+      return {
+        success: false,
+        errorMessage: 'Gold upgrade quota exceeded for this month',
+      };
+    }
+
+    await this.prisma.loyaltyProfile.update({
+      where: { userId },
+      data: { goldUpgradeUsedMonth: currentMonth },
+    });
+
+    this.logger.log(`Gold upgrade used by ${userId} for order ${orderId}`);
+
+    return { success: true, errorMessage: '' };
   }
 
   async processTicketPurchase(msg: TicketPurchasedDto): Promise<void> {
@@ -128,6 +313,7 @@ export class LoyaltyService {
       this.emitter.emit('loyalty.tier_upgraded', tierUpgradePayload);
     }
   }
+
   // HELPERS
 
   private async findOrCreateProfile(
