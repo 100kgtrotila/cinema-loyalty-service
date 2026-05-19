@@ -1,4 +1,4 @@
-import { Controller } from '@nestjs/common';
+import { Controller, UseGuards } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { LoyaltyService } from './loyalty.service';
 import type {
@@ -7,8 +7,10 @@ import type {
   GetFullProfileRequest,
   UseGoldUpgradeRequest,
 } from './interfaces/loyalty-request.interface';
+import { GrpcApiKeyGuard } from 'src/guards/grpc-api-key.guard';
 
 @Controller()
+@UseGuards(GrpcApiKeyGuard)
 export class LoyaltyController {
   constructor(private readonly loyaltyService: LoyaltyService) {}
 
