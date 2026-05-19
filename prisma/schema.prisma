@@ -35,8 +35,6 @@ model LoyaltyProfile {
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
 
-  
-
   @@index([userId])
   @@index([tier])
   @@map("loyalty_profiles")
