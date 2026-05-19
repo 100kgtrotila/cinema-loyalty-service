@@ -4,6 +4,8 @@ export const BATCH_SIZE = 500;
 export const NOTIFY_DAYS_BEFORE = 30;
 export const LOCK_TIMEOUT_MINUTES = 55;
 
+export const LOYALTY_QUEUE_NAME = 'loyalty-queue';
+
 export const TIME_CONSTANTS = {
   MS_IN_A_DAY: 1000 * 60 * 60 * 24,
 };
