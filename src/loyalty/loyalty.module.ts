@@ -10,17 +10,23 @@ import { TierUpgradeListener } from './notifications/tier-upgrade.listener';
 import { BullModule } from '@nestjs/bullmq';
 import { getBullConfig } from 'src/config/bullmq.config';
 import { getRabbitMqConfig } from 'src/config/rabbitmq.config';
+import { LOYALTY_QUEUE_NAME } from './constants/loyalty.constants';
 
 @Module({
   imports: [
     ConfigModule,
     PrismaModule,
     EventEmitterModule.forRoot(),
+    // BULL MQ
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: getBullConfig,
     }),
+    BullModule.registerQueue({
+      name: LOYALTY_QUEUE_NAME,
+    }),
+    // RABBIT MQ
     ClientsModule.registerAsync([
       {
         name: 'LOYALTY_PUBLISHER',
