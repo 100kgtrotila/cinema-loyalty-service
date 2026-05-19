@@ -5,7 +5,7 @@ export function getRabbitMqConfig(
   configService: ConfigService,
 ): ClientProviderOptions {
   return {
-    name: 'LOYALTY_PUBLISHER', // Це ім'я токена, по якому ти будеш інжектити клієнта
+    name: 'LOYALTY_PUBLISHER',
     transport: Transport.RMQ,
     options: {
       urls: [configService.getOrThrow<string>('RABBITMQ_URL')],
