@@ -1,14 +1,21 @@
+// src/loyalty/loyalty.module.ts
 import { Module } from '@nestjs/common';
-import { ClientsModule, Transport } from '@nestjs/microservices';
+import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { PrismaModule } from '../prisma/prisma.module';
 import { LoyaltyService } from './loyalty.service';
+import { LoyaltyController } from './loyalty.controller';
 import { TicketPurchasedConsumer } from './consumers/ticket-purchased.consumer';
 import { TierUpgradeListener } from './notifications/tier-upgrade.listener';
-import { LoyaltyController } from './loyalty.controller';
 
 @Module({
   imports: [
+    ConfigModule,
+    PrismaModule,
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     ClientsModule.register([
       {
         name: 'LOYALTY_PUBLISHER',
@@ -21,7 +28,16 @@ import { LoyaltyController } from './loyalty.controller';
       },
     ]),
   ],
-  providers: [LoyaltyService, TierUpgradeListener],
-  controllers: [TicketPurchasedConsumer, LoyaltyController],
+  controllers: [
+    LoyaltyController,
+    TicketPurchasedConsumer,
+    OrderCancelledConsumer,
+  ],
+  providers: [
+    LoyaltyService,
+    TierUpgradeListener,
+    LoyaltySchedulerService,
+    GrpcApiKeyGuard,
+  ],
 })
 export class LoyaltyModule {}
