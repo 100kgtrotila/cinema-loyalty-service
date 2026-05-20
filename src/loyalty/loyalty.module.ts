@@ -11,6 +11,9 @@ import { BullModule } from '@nestjs/bullmq';
 import { getBullConfig } from 'src/config/bullmq.config';
 import { getRabbitMqConfig } from 'src/config/rabbitmq.config';
 import { LOYALTY_QUEUE_NAME } from './constants/loyalty.constants';
+import { LoyaltyExpirationService } from './loyalty-expiration.service';
+import { LoyaltySchedulerProducer } from './producers/loyalty-scheduler.producer';
+import { LoyaltyQueueProcessor } from './processors/loyalty-queue.processor';
 
 @Module({
   imports: [
@@ -37,6 +40,12 @@ import { LOYALTY_QUEUE_NAME } from './constants/loyalty.constants';
     ]),
   ],
   controllers: [LoyaltyController, TicketPurchasedConsumer],
-  providers: [LoyaltyService, TierUpgradeListener],
+  providers: [
+    LoyaltyService,
+    LoyaltyExpirationService,
+    LoyaltySchedulerProducer,
+    LoyaltyQueueProcessor,
+    TierUpgradeListener,
+  ],
 })
 export class LoyaltyModule {}
