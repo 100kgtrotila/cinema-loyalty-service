@@ -2,9 +2,6 @@ import { Tier } from 'src/generated/prisma/enums';
 
 export const BATCH_SIZE = 500;
 export const NOTIFY_DAYS_BEFORE = 30;
-export const LOCK_TIMEOUT_MINUTES = 55;
-
-export const LOYALTY_QUEUE_NAME = 'loyalty-queue';
 
 export const TIME_CONSTANTS = {
   MS_IN_A_DAY: 1000 * 60 * 60 * 24,
@@ -33,3 +30,28 @@ export const LOYALTY_RULES = {
     [Tier.BRONZE]: 2,
   },
 };
+
+export const LOYALTY_QUEUE_NAME = 'loyalty-queue';
+
+export const LOYALTY_JOBS = {
+  EXPIRE_POINTS: 'expire-points',
+  NOTIFY_EXPIRING: 'notify-expiring',
+  ANNUAL_RESET: 'annual-reset',
+  GOLD_RESET: 'gold-reset',
+} as const;
+
+export const CRON_SCHEDULES = {
+  EVERY_NIGHT_03_00: '0 3 * * *',
+  EVERY_NIGHT_04_00: '0 4 * * *',
+  FIRST_OF_JAN_00_05: '5 0 1 1 *',
+  FIRST_OF_MONTH_01_00: '0 1 1 * *',
+} as const;
+
+export const INJECTION_TOKENS = {
+  RABBITMQ_LOYALTY_CLIENT: 'LOYALTY_PUBLISHER',
+} as const;
+
+export const RABBITMQ_EVENTS = {
+  POINTS_EXPIRING: 'loyalty.points_expiring',
+  TIER_UPGRADED: 'loyalty.tier_upgraded',
+} as const;
