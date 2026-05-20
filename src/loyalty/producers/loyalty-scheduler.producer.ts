@@ -49,5 +49,6 @@ export class LoyaltySchedulerProducer implements OnModuleInit {
         jobId: `${LOYALTY_JOBS.GOLD_RESET}-schedule`,
       },
     );
+    await this.loyaltyQueue.add(LOYALTY_JOBS.NOTIFY_EXPIRING, {});
   }
 }
