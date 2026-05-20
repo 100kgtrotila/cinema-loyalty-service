@@ -84,6 +84,7 @@ export const LoyaltyProfileScalarFieldEnum = {
   lastActivityAt: 'lastActivityAt',
   balanceExpiresAt: 'balanceExpiresAt',
   birthdayDate: 'birthdayDate',
+  lastExpiryNotificationAt: 'lastExpiryNotificationAt',
   goldUpgradeUsedMonth: 'goldUpgradeUsedMonth',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
