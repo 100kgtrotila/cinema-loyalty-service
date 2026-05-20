@@ -10,6 +10,7 @@ import { Logger } from '@nestjs/common';
 @Processor(LOYALTY_QUEUE_NAME)
 export class LoyaltyQueueProcessor extends WorkerHost {
   private readonly logger = new Logger(LoyaltyQueueProcessor.name);
+
   constructor(private readonly expirationService: LoyaltyExpirationService) {
     super();
   }
@@ -23,11 +24,27 @@ export class LoyaltyQueueProcessor extends WorkerHost {
           await job.updateProgress(total);
         });
         break;
+
       case LOYALTY_JOBS.NOTIFY_EXPIRING:
         await this.expirationService.notifyExpiringUsers(async (total) => {
           await job.updateProgress(total);
         });
         break;
+
+      case LOYALTY_JOBS.ANNUAL_RESET:
+        await this.expirationService.annualReset(async (total) => {
+          await job.updateProgress(total);
+        });
+        break;
+
+      case LOYALTY_JOBS.GOLD_RESET:
+        await this.expirationService.goldReset(async (total) => {
+          await job.updateProgress(total);
+        });
+        break;
+
+      default:
+        this.logger.error(`Отримано невідому задачу: ${job.name}`);
     }
   }
 }
