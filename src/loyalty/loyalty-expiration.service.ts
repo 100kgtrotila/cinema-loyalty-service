@@ -131,4 +131,77 @@ export class LoyaltyExpirationService {
       `[expire-points] Успішно завершено! Всього обнулено: ${total}`,
     );
   }
+
+  async annualReset(
+    onProgress?: (processedTotal: number) => Promise<void>,
+  ): Promise<void> {
+    let cursor: string | undefined;
+    let total = 0;
+
+    do {
+      const batch = await this.prisma.loyaltyProfile.findMany({
+        where: {
+          OR: [{ yearPoints: { gt: 0 } }, { yearVisits: { gt: 0 } }],
+        },
+        select: { id: true },
+        take: BATCH_SIZE,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: 'desc' },
+      });
+
+      if (batch.length === 0) break;
+      cursor = batch[batch.length - 1]?.id;
+
+      await this.prisma.loyaltyProfile.updateMany({
+        where: { id: { in: batch.map((p) => p.id) } },
+        data: {
+          yearPoints: 0,
+          yearVisits: 0,
+        },
+      });
+
+      total += batch.length;
+      if (onProgress) await onProgress(total);
+    } while (cursor);
+
+    this.logger.log(
+      `[annual-reset] Завершено. Скинуто статистику для ${total} юзерів.`,
+    );
+  }
+
+  async goldReset(
+    onProgress?: (processedTotal: number) => Promise<void>,
+  ): Promise<void> {
+    let cursor: string | undefined;
+    let total = 0;
+
+    do {
+      const batch = await this.prisma.loyaltyProfile.findMany({
+        where: {
+          goldUpgradeUsedMonth: { not: null },
+        },
+        select: { id: true },
+        take: BATCH_SIZE,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: 'desc' },
+      });
+
+      if (batch.length === 0) break;
+      cursor = batch[batch.length - 1]?.id;
+
+      await this.prisma.loyaltyProfile.updateMany({
+        where: { id: { in: batch.map((p) => p.id) } },
+        data: {
+          goldUpgradeUsedMonth: null,
+        },
+      });
+
+      total += batch.length;
+      if (onProgress) await onProgress(total);
+    } while (cursor);
+
+    this.logger.log(
+      `[gold-reset] Завершено. Оновлено квоти для ${total} юзерів.`,
+    );
+  }
 }
