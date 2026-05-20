@@ -1,0 +1,134 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  BATCH_SIZE,
+  INJECTION_TOKENS,
+  NOTIFY_DAYS_BEFORE,
+  RABBITMQ_EVENTS,
+  TIME_CONSTANTS,
+} from './constants/loyalty.constants';
+import { ClientProxy } from '@nestjs/microservices';
+
+@Injectable()
+export class LoyaltyExpirationService {
+  private readonly logger = new Logger(LoyaltyExpirationService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(INJECTION_TOKENS.RABBITMQ_LOYALTY_CLIENT)
+    private readonly rabbitClient: ClientProxy,
+  ) {}
+
+  async notifyExpiringUsers(
+    onProgress?: (processedTotal: number) => Promise<void>,
+  ): Promise<void> {
+    const now = new Date();
+
+    const thirtyDaysFromNow = new Date(
+      now.getTime() + NOTIFY_DAYS_BEFORE * TIME_CONSTANTS.MS_IN_A_DAY,
+    );
+    const notifiedBefore = new Date(
+      now.getTime() - NOTIFY_DAYS_BEFORE * TIME_CONSTANTS.MS_IN_A_DAY,
+    );
+
+    let cursor: string | undefined;
+    let total = 0;
+
+    do {
+      const batch = await this.prisma.loyaltyProfile.findMany({
+        where: {
+          balance: { gt: 0 },
+          balanceExpiresAt: { gte: now, lte: thirtyDaysFromNow },
+          OR: [
+            { lastExpiryNotificationAt: null },
+            { lastExpiryNotificationAt: { lt: notifiedBefore } },
+          ],
+        },
+        select: {
+          id: true,
+          userId: true,
+          balance: true,
+          balanceExpiresAt: true,
+        },
+        take: BATCH_SIZE,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: 'desc' },
+      });
+
+      if (batch.length === 0) break;
+
+      cursor = batch[batch.length - 1]?.id;
+
+      await this.prisma.loyaltyProfile.updateMany({
+        where: { id: { in: batch.map((p) => p.id) } },
+        data: {
+          lastExpiryNotificationAt: now,
+        },
+      });
+
+      for (const profile of batch) {
+        this.rabbitClient.emit(RABBITMQ_EVENTS.POINTS_EXPIRING, {
+          userId: profile.userId,
+          points: profile.balance,
+          expiresAt: profile.balanceExpiresAt?.toISOString(),
+        });
+      }
+
+      total += batch.length;
+      if (onProgress) await onProgress(total);
+    } while (cursor);
+    this.logger.log(
+      `[notify-expiring] Завершено. Відправлено сповіщень у RabbitMQ: ${total}`,
+    );
+  }
+
+  async expirePoints(
+    onProgress?: (processedTotal: number) => Promise<void>,
+  ): Promise<void> {
+    const now = new Date();
+    let total = 0;
+    let cursor: string | undefined;
+
+    do {
+      const batch = await this.prisma.loyaltyProfile.findMany({
+        where: { balance: { gt: 0 }, balanceExpiresAt: { lte: now } },
+        select: { id: true, userId: true, balance: true },
+        take: BATCH_SIZE,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: 'desc' },
+      });
+
+      if (batch.length === 0) break;
+
+      cursor = batch[batch.length - 1]?.id;
+
+      await this.prisma.$transaction([
+        this.prisma.loyaltyProfile.updateMany({
+          where: { id: { in: batch.map((p) => p.id) } },
+          data: { balance: 0 },
+        }),
+        this.prisma.pointsTransaction.createMany({
+          data: batch.map((p) => ({
+            userId: p.userId,
+            type: 'EXPIRE',
+            points: -p.balance,
+            balanceAfter: 0,
+            description: 'Points expired due to 12 months inactivity',
+          })),
+        }),
+      ]);
+
+      total += batch.length;
+
+      if (onProgress) await onProgress(total);
+
+      this.logger.log(
+        `[expire-points] Оброблено пачку з ${batch.length} юзерів. Загалом: ${total}`,
+      );
+    } while (cursor);
+
+    this.logger.log(
+      `[expire-points] Успішно завершено! Всього обнулено: ${total}`,
+    );
+  }
+}
