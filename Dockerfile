@@ -1,14 +1,30 @@
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
 
-FROM node:18-alpine AS runner
+# bun
+RUN corepack enable && corepack prepare bun@latest --activate
+
+COPY bun.lockb package.json ./
+RUN bun install --frozen-lockfile
+
+COPY . .
+
+RUN bunx prisma generate
+
+RUN bun run build
+
+
+FROM node:22-alpine AS runner
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
+ENV NODE_ENV=production
+
+RUN corepack enable && corepack prepare bun@latest --activate
+
+COPY bun.lockb package.json ./
+RUN bun install --production --frozen-lockfile
+
+COPY prisma ./prisma
+
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
