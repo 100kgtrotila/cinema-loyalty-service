@@ -8,7 +8,7 @@ export function getRabbitMqConfig(
     name: 'LOYALTY_PUBLISHER',
     transport: Transport.RMQ,
     options: {
-      urls: [configService.getOrThrow<string>('RABBITMQ_URL')],
+      urls: [configService.getOrThrow<string>('RMQ_URL')],
       queue: 'loyalty.events',
       queueOptions: { durable: true },
     },
