@@ -16,6 +16,7 @@ COPY package*.json ./
 RUN npm install --omit=dev
 
 COPY prisma ./prisma
+COPY prisma.config.ts ./
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
