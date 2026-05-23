@@ -62,3 +62,29 @@ model PointsTransaction {
   @@index([createdAt])
   @@map("points_transactions")
 }
+
+enum OutboxEventStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model OutboxEvent {
+  id            String            @id @default(uuid()) @db.Uuid
+  type          String            @db.VarChar(100)
+  payload       Json              @db.JsonB
+  status        OutboxEventStatus @default(PENDING)
+  aggregateType String            @map("aggregate_type") @db.VarChar(100)
+  aggregateId   String            @map("aggregate_id") @db.Uuid
+  attempts      Int               @default(0) @db.SmallInt
+  maxAttempts   Int               @default(5) @map("max_attempts") @db.SmallInt
+  error         String?           @db.Text
+  publishedAt   DateTime?         @map("published_at") @db.Timestamptz()
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@index([status, createdAt])
+  @@index([aggregateType, aggregateId])
+  @@map("outbox_events")
+}
