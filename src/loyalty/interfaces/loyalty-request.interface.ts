@@ -14,3 +14,10 @@ export interface UseGoldUpgradeRequest {
   userId: string;
   orderId: string;
 }
+
+export interface RefundPointsRequest {
+  userId: string;
+  amount: number;
+  orderId: string;
+  idempotencyKey: string;
+}
