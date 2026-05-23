@@ -41,3 +41,9 @@ export interface RefundPointsResponse {
   balanceAfter: number;
   errorMessage?: string;
 }
+
+export interface CalculateDiscountResponse {
+  isAllowed: boolean;
+  pointsToDeduct: number;
+  amountToPay: number;
+}
