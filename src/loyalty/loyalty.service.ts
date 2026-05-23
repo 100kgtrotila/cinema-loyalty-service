@@ -15,6 +15,7 @@ import {
 import { LoyaltyProfileSnapshot } from './interfaces/loyalty-profile.inteface';
 import { LoyaltyMapper } from 'src/utils/loyalty.mapper';
 import { LoyaltyCalculatorService } from './loyalty-calculator.service';
+import { PointsTransactionType } from './constants/points-transaction-type.enum';
 
 @Injectable()
 export class LoyaltyService {
@@ -58,22 +59,11 @@ export class LoyaltyService {
     });
 
     if (!profile) {
-      return {
-        userId,
-        tier: LoyaltyMapper.toGrpcTier(Tier.BRONZE),
-        balance: 0,
-        lifetimePoints: 0,
-        yearPoints: 0,
-        yearVisits: 0,
-        tierExpiresAt: '',
-        balanceExpiresAt: '',
-        isBirthdayWeek: false,
-        goldUpgradeAvailable: false,
-      };
+      throw new RpcException({
+        code: GrpcStatus.NOT_FOUND,
+        message: `Loyalty profile not found for user ${userId}`,
+      });
     }
-
-    const now = new Date();
-    const goldUpgradeMonth = `${now.getFullYear()}-${now.getMonth() + 1}`;
 
     return {
       userId: profile.userId,
@@ -85,9 +75,10 @@ export class LoyaltyService {
       tierExpiresAt: profile.tierExpiresAt?.toISOString() ?? '',
       balanceExpiresAt: profile.balanceExpiresAt?.toISOString() ?? '',
       isBirthdayWeek: this.calculator.isBirthdayWeek(profile.birthdayDate),
-      goldUpgradeAvailable:
-        profile.tier === Tier.GOLD &&
-        profile.goldUpgradeUsedMonth !== goldUpgradeMonth,
+      goldUpgradeAvailable: this.isGoldUpgradeAvailable(
+        profile.tier,
+        profile.goldUpgradeUsedMonth,
+      ),
     };
   }
 
@@ -154,7 +145,7 @@ export class LoyaltyService {
         await trx.pointsTransaction.create({
           data: {
             userId,
-            type: 'BURN_DISCOUNT',
+            type: PointsTransactionType.BURN_DISCOUNT,
             points: -amount,
             balanceAfter: newBalance,
             orderId,
@@ -242,21 +233,15 @@ export class LoyaltyService {
   }
 
   async processTicketPurchase(msg: TicketPurchasedDto): Promise<void> {
-    let tierUpgradePayload: {
-      userId: string;
-      oldTier: Tier;
-      newTier: Tier;
-    } | null = null;
-
     try {
-      tierUpgradePayload = await this.prisma.$transaction(async (trx) => {
+      await this.prisma.$transaction(async (trx) => {
         const alreadyProcessed = await trx.processedEvent.findUnique({
           where: { eventId: msg.eventId },
         });
 
         if (alreadyProcessed) {
           this.logger.warn(`Event ${msg.eventId} already processed. Skipping.`);
-          return null;
+          return;
         }
 
         const profile = await this.findOrCreateProfile(msg.userId, trx);
@@ -310,10 +295,25 @@ export class LoyaltyService {
         );
 
         if (newTier !== profile.tier) {
-          return { userId: msg.userId, oldTier: profile.tier, newTier };
-        }
+          const upgradePayload = {
+            userId: msg.userId,
+            oldTier: profile.tier,
+            newTier,
+          };
 
-        return null;
+          await trx.outboxEvent.create({
+            data: {
+              type: 'loyalty.tier_upgraded',
+              payload: upgradePayload,
+              aggregateType: 'LoyaltyProfile',
+              aggregateId: msg.userId,
+            },
+          });
+
+          this.logger.log(
+            `[${msg.userId}] Tier upgraded: ${profile.tier} → ${newTier}. Event saved to Outbox.`,
+          );
+        }
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -323,13 +323,6 @@ export class LoyaltyService {
         stack,
       );
       throw error;
-    }
-
-    if (tierUpgradePayload) {
-      this.logger.log(
-        `[${tierUpgradePayload.userId}] Tier upgraded: ${tierUpgradePayload.oldTier} → ${tierUpgradePayload.newTier}`,
-      );
-      this.emitter.emit('loyalty.tier_upgraded', tierUpgradePayload);
     }
   }
 
@@ -346,5 +339,19 @@ export class LoyaltyService {
     });
 
     return profile;
+  }
+
+  private isGoldUpgradeAvailable(
+    tier: Tier,
+    goldUpgradeUsedMonth: string | null,
+  ): boolean {
+    if (tier !== Tier.GOLD) return false;
+
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${now.getMonth() + 1}`;
+
+    return (
+      goldUpgradeUsedMonth === null || goldUpgradeUsedMonth !== currentMonth
+    );
   }
 }
