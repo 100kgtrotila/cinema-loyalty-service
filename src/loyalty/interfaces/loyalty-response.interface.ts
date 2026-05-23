@@ -28,10 +28,16 @@ export interface GetFullProfileResponse {
 export interface DeductPointsResponse {
   success: boolean;
   balanceAfter: number;
-  errorMessage: string;
+  errorMessage?: string;
 }
 
 export interface UseGoldUpgradeResponse {
   success: boolean;
-  errorMessage: string;
+  errorMessage?: string;
+}
+
+export interface RefundPointsResponse {
+  success: boolean;
+  balanceAfter: number;
+  errorMessage?: string;
 }
