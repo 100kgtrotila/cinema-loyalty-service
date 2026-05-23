@@ -1,4 +1,11 @@
-import { IsNumber, IsEnum, IsDateString, IsUUID, Min } from 'class-validator';
+import {
+  IsNumber,
+  IsEnum,
+  IsDateString,
+  IsUUID,
+  Min,
+  IsOptional,
+} from 'class-validator';
 import { EventType } from '../enums/event-type.enum';
 
 export class TicketPurchasedDto {
@@ -28,4 +35,9 @@ export class TicketPurchasedDto {
 
   @IsDateString()
   purchasedAt!: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  paidAmount?: number;
 }
