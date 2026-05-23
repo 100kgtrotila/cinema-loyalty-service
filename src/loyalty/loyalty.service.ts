@@ -7,6 +7,7 @@ import { LOYALTY_RULES } from './constants/loyalty.constants';
 import { RpcException } from '@nestjs/microservices';
 import { GrpcStatus } from 'src/common/grpc-status';
 import {
+  CalculateDiscountResponse,
   DeductPointsResponse,
   GetBalanceResponse,
   GetFullProfileResponse,
@@ -249,7 +250,8 @@ export class LoyaltyService {
           profile,
           msg.eventType,
         );
-        const pointsEarned = Math.floor(msg.totalAmount * multiplier);
+        const actualAmountToReward = msg.paidAmount ?? msg.totalAmount;
+        const pointsEarned = Math.floor(actualAmountToReward * multiplier);
 
         const newBalance = profile.balance + pointsEarned;
         const newLifetime = profile.lifetimePoints + pointsEarned;
@@ -326,6 +328,37 @@ export class LoyaltyService {
     }
   }
 
+  async calculateDiscount(
+    userId: string,
+    orderAmount: number,
+  ): Promise<CalculateDiscountResponse> {
+    const profile = await this.prisma.loyaltyProfile.findUnique({
+      where: { userId },
+      select: { balance: true },
+    });
+
+    if (!profile || profile.balance < LOYALTY_RULES.MINIMUM_DEDUCTION) {
+      return {
+        isAllowed: false,
+        pointsToDeduct: 0,
+        amountToPay: orderAmount,
+      };
+    }
+
+    const maxDiscountAllowed = orderAmount * 0.5;
+
+    const pointsToDeduct = Math.floor(
+      Math.min(profile.balance, maxDiscountAllowed),
+    );
+    const amountToPay = orderAmount - pointsToDeduct;
+
+    return {
+      isAllowed: true,
+      pointsToDeduct,
+      amountToPay,
+    };
+  }
+
   // HELPERS
 
   private async findOrCreateProfile(
@@ -345,13 +378,14 @@ export class LoyaltyService {
     tier: Tier,
     goldUpgradeUsedMonth: string | null,
   ): boolean {
-    if (tier !== Tier.GOLD) return false;
+    if (tier !== Tier.GOLD) {
+      return false;
+    }
 
     const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${now.getMonth() + 1}`;
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const currentMonth = `${now.getFullYear()}-${month}`;
 
-    return (
-      goldUpgradeUsedMonth === null || goldUpgradeUsedMonth !== currentMonth
-    );
+    return goldUpgradeUsedMonth !== currentMonth;
   }
 }
