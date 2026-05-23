@@ -9,7 +9,6 @@ import {
 } from './constants/loyalty.constants';
 import { ClientProxy } from '@nestjs/microservices';
 import { RefundPointsResponse } from './interfaces/loyalty-response.interface';
-import { PointsTransactionType } from './constants/points-transaction-type.enum';
 
 @Injectable()
 export class LoyaltyExpirationService {
@@ -211,28 +210,34 @@ export class LoyaltyExpirationService {
     userId: string,
     amount: number,
     orderId: string,
+    idempotencyKey: string,
   ): Promise<RefundPointsResponse> {
     try {
       return await this.prisma.$transaction(async (trx) => {
+        const alreadyProcessed = await trx.processedEvent.findUnique({
+          where: { eventId: idempotencyKey },
+        });
+
+        if (alreadyProcessed) {
+          const profile = await trx.loyaltyProfile.findUnique({
+            where: { userId },
+          });
+          return {
+            success: true,
+            balanceAfter: profile?.balance || 0,
+            errorMessage: '',
+          };
+        }
+
         const profile = await trx.loyaltyProfile.findUnique({
           where: { userId },
         });
-
-        if (!profile) {
+        if (!profile)
           return {
             success: false,
             balanceAfter: 0,
             errorMessage: 'User profile not found',
           };
-        }
-
-        const existingRefund = await trx.pointsTransaction.findFirst({
-          where: { userId, orderId, type: PointsTransactionType.REFUND },
-        });
-
-        if (existingRefund) {
-          return { success: true, balanceAfter: profile.balance };
-        }
 
         const newBalance = profile.balance + amount;
 
@@ -244,15 +249,18 @@ export class LoyaltyExpirationService {
         await trx.pointsTransaction.create({
           data: {
             userId,
-            type: PointsTransactionType.REFUND,
+            type: 'REFUND',
             points: amount,
             balanceAfter: newBalance,
             orderId,
             description: `Refund for failed order ${orderId}`,
           },
         });
+        await trx.processedEvent.create({
+          data: { eventId: idempotencyKey },
+        });
 
-        return { success: true, balanceAfter: newBalance };
+        return { success: true, balanceAfter: newBalance, errorMessage: '' };
       });
     } catch (error) {
       this.logger.error(
