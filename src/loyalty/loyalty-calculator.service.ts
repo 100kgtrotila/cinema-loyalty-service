@@ -49,7 +49,15 @@ export class LoyaltyCalculatorService {
 
   public addYears(date: Date, years: number): Date {
     const result = new Date(date);
-    result.setFullYear(result.getFullYear() + years);
+    const targetYear = result.getFullYear() + years;
+    const targetMonth = result.getMonth();
+
+    result.setFullYear(targetYear);
+
+    if (result.getMonth() !== targetMonth) {
+      result.setDate(0);
+    }
+
     return result;
   }
 
@@ -59,12 +67,17 @@ export class LoyaltyCalculatorService {
     const today = new Date();
     const birthday = new Date(birthdayDate);
 
-    birthday.setFullYear(today.getFullYear());
+    const candidates = [-1, 0, 1].map((yearOffset) => {
+      const candidate = new Date(birthday);
+      candidate.setFullYear(today.getFullYear() + yearOffset);
+      return candidate;
+    });
 
-    const diffMs = Math.abs(today.getTime() - birthday.getTime());
-    const diffDays = diffMs / TIME_CONSTANTS.MS_IN_A_DAY;
-
-    return diffDays <= LOYALTY_RULES.BIRTHDAY_WEEK_RADIUS_DAYS;
+    return candidates.some((candidate) => {
+      const diffMs = Math.abs(today.getTime() - candidate.getTime());
+      const diffDays = diffMs / TIME_CONSTANTS.MS_IN_A_DAY;
+      return diffDays <= LOYALTY_RULES.BIRTHDAY_WEEK_RADIUS_DAYS;
+    });
   }
 
   private calculateTierByMetrics(visits: number, points: number): Tier {
