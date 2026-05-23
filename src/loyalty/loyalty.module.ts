@@ -14,6 +14,7 @@ import { LOYALTY_QUEUE_NAME } from './constants/loyalty.constants';
 import { LoyaltyExpirationService } from './loyalty-expiration.service';
 import { LoyaltySchedulerProducer } from './producers/loyalty-scheduler.producer';
 import { LoyaltyQueueProcessor } from './processors/loyalty-queue.processor';
+import { LoyaltyCalculatorService } from './loyalty-calculator.service';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { LoyaltyQueueProcessor } from './processors/loyalty-queue.processor';
     LoyaltySchedulerProducer,
     LoyaltyQueueProcessor,
     TierUpgradeListener,
+    LoyaltyCalculatorService,
   ],
 })
 export class LoyaltyModule {}
