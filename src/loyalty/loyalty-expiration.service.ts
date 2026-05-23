@@ -8,6 +8,8 @@ import {
   TIME_CONSTANTS,
 } from './constants/loyalty.constants';
 import { ClientProxy } from '@nestjs/microservices';
+import { RefundPointsResponse } from './interfaces/loyalty-response.interface';
+import { PointsTransactionType } from './constants/points-transaction-type.enum';
 
 @Injectable()
 export class LoyaltyExpirationService {
@@ -203,5 +205,64 @@ export class LoyaltyExpirationService {
     this.logger.log(
       `[gold-reset] Завершено. Оновлено квоти для ${total} юзерів.`,
     );
+  }
+
+  async refundPoints(
+    userId: string,
+    amount: number,
+    orderId: string,
+  ): Promise<RefundPointsResponse> {
+    try {
+      return await this.prisma.$transaction(async (trx) => {
+        const profile = await trx.loyaltyProfile.findUnique({
+          where: { userId },
+        });
+
+        if (!profile) {
+          return {
+            success: false,
+            balanceAfter: 0,
+            errorMessage: 'User profile not found',
+          };
+        }
+
+        const existingRefund = await trx.pointsTransaction.findFirst({
+          where: { userId, orderId, type: PointsTransactionType.REFUND },
+        });
+
+        if (existingRefund) {
+          return { success: true, balanceAfter: profile.balance };
+        }
+
+        const newBalance = profile.balance + amount;
+
+        await trx.loyaltyProfile.update({
+          where: { userId },
+          data: { balance: newBalance },
+        });
+
+        await trx.pointsTransaction.create({
+          data: {
+            userId,
+            type: PointsTransactionType.REFUND,
+            points: amount,
+            balanceAfter: newBalance,
+            orderId,
+            description: `Refund for failed order ${orderId}`,
+          },
+        });
+
+        return { success: true, balanceAfter: newBalance };
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to refund points for order ${orderId}: ${error}`,
+      );
+      return {
+        success: false,
+        balanceAfter: 0,
+        errorMessage: 'Internal server error during refund',
+      };
+    }
   }
 }
