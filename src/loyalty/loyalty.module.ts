@@ -15,11 +15,14 @@ import { LoyaltyExpirationService } from './loyalty-expiration.service';
 import { LoyaltySchedulerProducer } from './producers/loyalty-scheduler.producer';
 import { LoyaltyQueueProcessor } from './processors/loyalty-queue.processor';
 import { LoyaltyCalculatorService } from './loyalty-calculator.service';
+import { ScheduleModule } from '@nestjs/schedule';
+import { OutboxPublisherService } from './outbox-publisher.service';
 
 @Module({
   imports: [
     ConfigModule,
     PrismaModule,
+    ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
     // BULL MQ
     BullModule.forRootAsync({
@@ -48,6 +51,7 @@ import { LoyaltyCalculatorService } from './loyalty-calculator.service';
     LoyaltyQueueProcessor,
     TierUpgradeListener,
     LoyaltyCalculatorService,
+    OutboxPublisherService,
   ],
 })
 export class LoyaltyModule {}
