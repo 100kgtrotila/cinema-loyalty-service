@@ -3,9 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Tier } from 'src/generated/prisma/enums';
 import { TicketPurchasedDto } from './dto/ticked-purchased.dto';
 import EventEmitter2 from 'eventemitter2';
-import { EventType } from './enums/event-type.enum';
-import { PointsTransactionType } from './constants/points-transaction-type.enum';
-import { LOYALTY_RULES, TIME_CONSTANTS } from './constants/loyalty.constants';
+import { LOYALTY_RULES } from './constants/loyalty.constants';
 import { RpcException } from '@nestjs/microservices';
 import { GrpcStatus } from 'src/common/grpc-status';
 import {
@@ -16,6 +14,7 @@ import {
 } from './interfaces/loyalty-response.interface';
 import { LoyaltyProfileSnapshot } from './interfaces/loyalty-profile.inteface';
 import { LoyaltyMapper } from 'src/utils/loyalty.mapper';
+import { LoyaltyCalculatorService } from './loyalty-calculator.service';
 
 @Injectable()
 export class LoyaltyService {
@@ -24,6 +23,7 @@ export class LoyaltyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
+    private readonly calculator: LoyaltyCalculatorService,
   ) {}
 
   async getBalance(userId: string): Promise<GetBalanceResponse> {
@@ -38,12 +38,10 @@ export class LoyaltyService {
     });
 
     if (!profile) {
-      return {
-        balance: 0,
-        lifetimePoints: 0,
-        yearPoints: 0,
-        tier: LoyaltyMapper.toGrpcTier(Tier.BRONZE),
-      };
+      throw new RpcException({
+        code: GrpcStatus.NOT_FOUND,
+        message: `Profile not found for user ${userId}`,
+      });
     }
 
     return {
@@ -86,7 +84,7 @@ export class LoyaltyService {
       yearVisits: profile.yearVisits,
       tierExpiresAt: profile.tierExpiresAt?.toISOString() ?? '',
       balanceExpiresAt: profile.balanceExpiresAt?.toISOString() ?? '',
-      isBirthdayWeek: this.isBirthdayWeek(profile.birthdayDate),
+      isBirthdayWeek: this.calculator.isBirthdayWeek(profile.birthdayDate),
       goldUpgradeAvailable:
         profile.tier === Tier.GOLD &&
         profile.goldUpgradeUsedMonth !== goldUpgradeMonth,
@@ -103,7 +101,7 @@ export class LoyaltyService {
       return {
         success: false,
         balanceAfter: 0,
-        errorMessage: 'Minimum deduction is 75 points',
+        errorMessage: `Minimum deduction is ${LOYALTY_RULES.MINIMUM_DEDUCTION} points`,
       };
     }
 
@@ -121,7 +119,6 @@ export class LoyaltyService {
           return {
             success: true,
             balanceAfter: profile.balance,
-            errorMessage: '',
           };
         }
 
@@ -169,7 +166,7 @@ export class LoyaltyService {
           data: { eventId: idempotencyKey },
         });
 
-        return { success: true, balanceAfter: newBalance, errorMessage: '' };
+        return { success: true, balanceAfter: newBalance };
       });
 
       return result;
@@ -191,39 +188,57 @@ export class LoyaltyService {
     userId: string,
     orderId: string,
   ): Promise<UseGoldUpgradeResponse> {
-    const profile = await this.prisma.loyaltyProfile.findUnique({
-      where: { userId },
-    });
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const currentMonth = `${now.getFullYear()}-${month}`;
 
-    if (!profile) {
+    try {
+      const updated = await this.prisma.loyaltyProfile.updateMany({
+        where: {
+          userId,
+          tier: Tier.GOLD,
+          OR: [
+            { goldUpgradeUsedMonth: null },
+            { goldUpgradeUsedMonth: { not: currentMonth } },
+          ],
+        },
+        data: { goldUpgradeUsedMonth: currentMonth },
+      });
+
+      if (updated.count === 0) {
+        const profile = await this.prisma.loyaltyProfile.findUnique({
+          where: { userId },
+          select: { tier: true, goldUpgradeUsedMonth: true },
+        });
+
+        if (!profile) {
+          throw new RpcException({
+            code: GrpcStatus.NOT_FOUND,
+            message: `Profile not found for user ${userId}`,
+          });
+        }
+
+        if (profile.tier !== Tier.GOLD) {
+          return { success: false, errorMessage: 'User is not GOLD tier' };
+        }
+
+        return {
+          success: false,
+          errorMessage: 'Gold upgrade quota exceeded for this month',
+        };
+      }
+
+      this.logger.log(`Gold upgrade used by ${userId} for order ${orderId}`);
+      return { success: true };
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`useGoldUpgrade failed for ${userId}: ${message}`);
       throw new RpcException({
-        code: GrpcStatus.NOT_FOUND,
-        message: `Profile not found for user ${userId}`,
+        code: GrpcStatus.INTERNAL,
+        message: 'Internal error during gold upgrade',
       });
     }
-
-    if (profile.tier !== Tier.GOLD) {
-      return { success: false, errorMessage: 'User is not GOLD tier' };
-    }
-
-    const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${now.getMonth() + 1}`;
-
-    if (profile.goldUpgradeUsedMonth === currentMonth) {
-      return {
-        success: false,
-        errorMessage: 'Gold upgrade quota exceeded for this month',
-      };
-    }
-
-    await this.prisma.loyaltyProfile.update({
-      where: { userId },
-      data: { goldUpgradeUsedMonth: currentMonth },
-    });
-
-    this.logger.log(`Gold upgrade used by ${userId} for order ${orderId}`);
-
-    return { success: true, errorMessage: '' };
   }
 
   async processTicketPurchase(msg: TicketPurchasedDto): Promise<void> {
@@ -245,16 +260,22 @@ export class LoyaltyService {
         }
 
         const profile = await this.findOrCreateProfile(msg.userId, trx);
-
-        const multiplier = this.resolveMultiplier(profile, msg.eventType);
-
+        const multiplier = this.calculator.resolveMultiplier(
+          profile,
+          msg.eventType,
+        );
         const pointsEarned = Math.floor(msg.totalAmount * multiplier);
 
         const newBalance = profile.balance + pointsEarned;
         const newLifetime = profile.lifetimePoints + pointsEarned;
         const newYearPoints = profile.yearPoints + pointsEarned;
         const newYearVisits = profile.yearVisits + 1;
-        const newTier = this.checkTierUpgrade(newYearVisits, newYearPoints);
+
+        const newTier = this.calculator.resolveNewTier(
+          profile.tier,
+          newYearVisits,
+          newYearPoints,
+        );
 
         await trx.loyaltyProfile.update({
           where: { id: profile.id },
@@ -265,14 +286,14 @@ export class LoyaltyService {
             yearVisits: newYearVisits,
             tier: newTier,
             lastActivityAt: new Date(),
-            balanceExpiresAt: this.addYears(new Date(), 1),
+            balanceExpiresAt: this.calculator.addYears(new Date(), 1),
           },
         });
 
         await trx.pointsTransaction.create({
           data: {
             userId: msg.userId,
-            type: this.resolveTransactionType(msg.eventType),
+            type: this.calculator.resolveTransactionType(msg.eventType),
             points: pointsEarned,
             balanceAfter: newBalance,
             orderId: msg.orderId,
@@ -281,9 +302,7 @@ export class LoyaltyService {
         });
 
         await trx.processedEvent.create({
-          data: {
-            eventId: msg.eventId,
-          },
+          data: { eventId: msg.eventId },
         });
 
         this.logger.log(
@@ -320,77 +339,12 @@ export class LoyaltyService {
     userId: string,
     trx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0],
   ): Promise<LoyaltyProfileSnapshot> {
-    const existing = await trx.loyaltyProfile.findUnique({
+    const profile = await trx.loyaltyProfile.upsert({
       where: { userId },
+      create: { userId },
+      update: {},
     });
 
-    if (existing) return existing;
-
-    this.logger.log(`Creating new loyalty profile for user ${userId}`);
-
-    return trx.loyaltyProfile.create({
-      data: { userId },
-    });
-  }
-
-  private resolveMultiplier(
-    profile: LoyaltyProfileSnapshot,
-    eventType: EventType,
-  ): number {
-    let multiplier = this.getTierMultiplier(profile.tier);
-
-    if (this.isBirthdayWeek(profile.birthdayDate)) {
-      multiplier *= this.getBirthdayMultiplier(profile.tier);
-    }
-
-    if (eventType === EventType.SPECIAL || eventType === EventType.PREMIERE) {
-      multiplier *= LOYALTY_RULES.SPECIAL_EVENT_MULTIPLIER;
-    }
-
-    return multiplier;
-  }
-
-  private getTierMultiplier(tier: Tier): number {
-    return LOYALTY_RULES.TIER_MULTIPLIERS[tier];
-  }
-
-  private checkTierUpgrade(visits: number, points: number): Tier {
-    const { GOLD, SILVER } = LOYALTY_RULES.TIER_THRESHOLDS;
-
-    if (visits >= GOLD.visits || points >= GOLD.points) return Tier.GOLD;
-    if (visits >= SILVER.visits || points >= SILVER.points) return Tier.SILVER;
-
-    return Tier.BRONZE;
-  }
-
-  private isBirthdayWeek(birthdayDate: Date | null): boolean {
-    if (!birthdayDate) return false;
-
-    const today = new Date();
-    const birthday = new Date(birthdayDate);
-
-    birthday.setFullYear(today.getFullYear());
-
-    const diffMs = Math.abs(today.getTime() - birthday.getTime());
-    const diffDays = diffMs / TIME_CONSTANTS.MS_IN_A_DAY;
-
-    return diffDays <= LOYALTY_RULES.BIRTHDAY_WEEK_RADIUS_DAYS;
-  }
-
-  private getBirthdayMultiplier(tier: Tier): number {
-    return LOYALTY_RULES.BIRTHDAY_MULTIPLIERS[tier];
-  }
-
-  private resolveTransactionType(eventType: EventType): PointsTransactionType {
-    if (eventType === EventType.SPECIAL || eventType === EventType.PREMIERE) {
-      return PointsTransactionType.EARN_SPECIAL;
-    }
-    return PointsTransactionType.EARN_TICKET;
-  }
-
-  private addYears(date: Date, years: number): Date {
-    const result = new Date(date);
-    result.setFullYear(result.getFullYear() + years);
-    return result;
+    return profile;
   }
 }
