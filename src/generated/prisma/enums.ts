@@ -16,3 +16,13 @@ export const Tier = {
 } as const
 
 export type Tier = (typeof Tier)[keyof typeof Tier]
+
+
+export const OutboxEventStatus = {
+  PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED'
+} as const
+
+export type OutboxEventStatus = (typeof OutboxEventStatus)[keyof typeof OutboxEventStatus]

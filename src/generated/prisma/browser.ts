@@ -32,3 +32,8 @@ export type ProcessedEvent = Prisma.ProcessedEventModel
  * 
  */
 export type PointsTransaction = Prisma.PointsTransactionModel
+/**
+ * Model OutboxEvent
+ * 
+ */
+export type OutboxEvent = Prisma.OutboxEventModel
