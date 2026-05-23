@@ -8,4 +8,5 @@ export enum PointsTransactionType {
   BURN_REWARD = 'BURN_REWARD',
   EXPIRE = 'EXPIRE',
   ADJUST = 'ADJUST',
+  REFUND = 'REFUND',
 }
