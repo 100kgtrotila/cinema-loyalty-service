@@ -15,6 +15,10 @@ export interface UseGoldUpgradeRequest {
   orderId: string;
 }
 
+export interface CalculateDiscountRequest {
+  userId: string;
+  orderAmount: number;
+}
 export interface RefundPointsRequest {
   userId: string;
   amount: number;
