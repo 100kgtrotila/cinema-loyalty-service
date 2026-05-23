@@ -119,6 +119,10 @@ message RefundPointsResponse {
   string error_message = 3;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CalculateDiscountRequest
+//
+
 message CalculateDiscountRequest {
   string user_id = 1;
   double order_amount = 2;
