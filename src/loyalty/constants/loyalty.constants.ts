@@ -7,6 +7,12 @@ export const TIME_CONSTANTS = {
   MS_IN_A_DAY: 1000 * 60 * 60 * 24,
 };
 
+export const TIER_ORDER: Record<Tier, number> = {
+  [Tier.BRONZE]: 0,
+  [Tier.SILVER]: 1,
+  [Tier.GOLD]: 2,
+};
+
 export const LOYALTY_RULES = {
   BIRTHDAY_WEEK_RADIUS_DAYS: 3,
   SPECIAL_EVENT_MULTIPLIER: 2.0,
