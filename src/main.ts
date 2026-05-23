@@ -5,6 +5,7 @@ import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { AppConfig } from './interfaces/app-config.inteface';
+import { getCorsConfig } from './config/cors.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -14,6 +15,8 @@ async function bootstrap() {
 
   const logger = new Logger('Bootstrap');
 
+  const frontendUrl = configService.get<string>('FRONTEND_URL');
+  app.enableCors(getCorsConfig(frontendUrl!));
   app.enableShutdownHooks();
 
   app.useGlobalPipes(
@@ -45,7 +48,7 @@ async function bootstrap() {
   });
 
   await app.startAllMicroservices();
-
+  app.enableCors();
   await app.listen(appConfig.port);
 
   logger.log(`HTTP Server is running on port: ${appConfig.port}`);
