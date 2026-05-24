@@ -9,6 +9,8 @@ import {
 } from './constants/loyalty.constants';
 import { ClientProxy } from '@nestjs/microservices';
 import { RefundPointsResponse } from './interfaces/loyalty-response.interface';
+import { PointsTransactionType } from './events/points-transaction-type.enum';
+import { ERROR_MESSAGES, TRANSACTION_DESCRIPTIONS } from './constants/loyalty.constants';
 
 @Injectable()
 export class LoyaltyExpirationService {
@@ -18,7 +20,7 @@ export class LoyaltyExpirationService {
     private readonly prisma: PrismaService,
     @Inject(INJECTION_TOKENS.RABBITMQ_LOYALTY_CLIENT)
     private readonly rabbitClient: ClientProxy,
-  ) {}
+  ) { }
 
   async notifyExpiringUsers(
     onProgress?: (processedTotal: number) => Promise<void>,
@@ -111,10 +113,10 @@ export class LoyaltyExpirationService {
         this.prisma.pointsTransaction.createMany({
           data: batch.map((p) => ({
             userId: p.userId,
-            type: 'EXPIRE',
+            type: PointsTransactionType.EXPIRE,
             points: -p.balance,
             balanceAfter: 0,
-            description: 'Points expired due to 12 months inactivity',
+            description: TRANSACTION_DESCRIPTIONS.POINTS_EXPIRED,
           })),
         }),
       ]);
@@ -236,7 +238,7 @@ export class LoyaltyExpirationService {
           return {
             success: false,
             balanceAfter: 0,
-            errorMessage: 'User profile not found',
+            errorMessage: ERROR_MESSAGES.PROFILE_NOT_FOUND,
           };
 
         const newBalance = profile.balance + amount;
@@ -249,7 +251,7 @@ export class LoyaltyExpirationService {
         await trx.pointsTransaction.create({
           data: {
             userId,
-            type: 'REFUND',
+            type: PointsTransactionType.REFUND,
             points: amount,
             balanceAfter: newBalance,
             orderId,
@@ -269,7 +271,7 @@ export class LoyaltyExpirationService {
       return {
         success: false,
         balanceAfter: 0,
-        errorMessage: 'Internal server error during refund',
+        errorMessage: ERROR_MESSAGES.INTERNAL_REFUND,
       };
     }
   }
