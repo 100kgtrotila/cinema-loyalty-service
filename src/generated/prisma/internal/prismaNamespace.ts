@@ -387,7 +387,9 @@ export const ModelName = {
   LoyaltyProfile: 'LoyaltyProfile',
   ProcessedEvent: 'ProcessedEvent',
   PointsTransaction: 'PointsTransaction',
-  OutboxEvent: 'OutboxEvent'
+  OutboxEvent: 'OutboxEvent',
+  Achievement: 'Achievement',
+  UserAchievement: 'UserAchievement'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -403,7 +405,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "outboxEvent"
+    modelProps: "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "outboxEvent" | "achievement" | "userAchievement"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -703,6 +705,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    Achievement: {
+      payload: Prisma.$AchievementPayload<ExtArgs>
+      fields: Prisma.AchievementFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AchievementFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AchievementFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementPayload>
+        }
+        findFirst: {
+          args: Prisma.AchievementFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AchievementFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementPayload>
+        }
+        findMany: {
+          args: Prisma.AchievementFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementPayload>[]
+        }
+        create: {
+          args: Prisma.AchievementCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementPayload>
+        }
+        createMany: {
+          args: Prisma.AchievementCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AchievementCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementPayload>[]
+        }
+        delete: {
+          args: Prisma.AchievementDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementPayload>
+        }
+        update: {
+          args: Prisma.AchievementUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementPayload>
+        }
+        deleteMany: {
+          args: Prisma.AchievementDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AchievementUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AchievementUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementPayload>[]
+        }
+        upsert: {
+          args: Prisma.AchievementUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementPayload>
+        }
+        aggregate: {
+          args: Prisma.AchievementAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAchievement>
+        }
+        groupBy: {
+          args: Prisma.AchievementGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AchievementGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AchievementCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AchievementCountAggregateOutputType> | number
+        }
+      }
+    }
+    UserAchievement: {
+      payload: Prisma.$UserAchievementPayload<ExtArgs>
+      fields: Prisma.UserAchievementFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.UserAchievementFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserAchievementPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.UserAchievementFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserAchievementPayload>
+        }
+        findFirst: {
+          args: Prisma.UserAchievementFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserAchievementPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.UserAchievementFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserAchievementPayload>
+        }
+        findMany: {
+          args: Prisma.UserAchievementFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserAchievementPayload>[]
+        }
+        create: {
+          args: Prisma.UserAchievementCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserAchievementPayload>
+        }
+        createMany: {
+          args: Prisma.UserAchievementCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.UserAchievementCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserAchievementPayload>[]
+        }
+        delete: {
+          args: Prisma.UserAchievementDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserAchievementPayload>
+        }
+        update: {
+          args: Prisma.UserAchievementUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserAchievementPayload>
+        }
+        deleteMany: {
+          args: Prisma.UserAchievementDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.UserAchievementUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.UserAchievementUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserAchievementPayload>[]
+        }
+        upsert: {
+          args: Prisma.UserAchievementUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserAchievementPayload>
+        }
+        aggregate: {
+          args: Prisma.UserAchievementAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUserAchievement>
+        }
+        groupBy: {
+          args: Prisma.UserAchievementGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserAchievementGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.UserAchievementCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserAchievementCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -801,6 +951,43 @@ export const OutboxEventScalarFieldEnum = {
 } as const
 
 export type OutboxEventScalarFieldEnum = (typeof OutboxEventScalarFieldEnum)[keyof typeof OutboxEventScalarFieldEnum]
+
+
+export const AchievementScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  name: 'name',
+  description: 'description',
+  secretHint: 'secretHint',
+  isSecret: 'isSecret',
+  icon: 'icon',
+  category: 'category',
+  rarity: 'rarity',
+  strategy: 'strategy',
+  criteria: 'criteria',
+  rewardPoints: 'rewardPoints',
+  sortOrder: 'sortOrder',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AchievementScalarFieldEnum = (typeof AchievementScalarFieldEnum)[keyof typeof AchievementScalarFieldEnum]
+
+
+export const UserAchievementScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  achievementId: 'achievementId',
+  current: 'current',
+  target: 'target',
+  isUnlocked: 'isUnlocked',
+  unlockedAt: 'unlockedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type UserAchievementScalarFieldEnum = (typeof UserAchievementScalarFieldEnum)[keyof typeof UserAchievementScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -934,6 +1121,55 @@ export type ListEnumOutboxEventStatusFieldRefInput<$PrismaModel> = FieldRefInput
 
 
 /**
+ * Reference to a field of type 'Boolean'
+ */
+export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+/**
+ * Reference to a field of type 'AchievementCategory'
+ */
+export type EnumAchievementCategoryFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AchievementCategory'>
+    
+
+
+/**
+ * Reference to a field of type 'AchievementCategory[]'
+ */
+export type ListEnumAchievementCategoryFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AchievementCategory[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AchievementRarity'
+ */
+export type EnumAchievementRarityFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AchievementRarity'>
+    
+
+
+/**
+ * Reference to a field of type 'AchievementRarity[]'
+ */
+export type ListEnumAchievementRarityFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AchievementRarity[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AchievementStrategy'
+ */
+export type EnumAchievementStrategyFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AchievementStrategy'>
+    
+
+
+/**
+ * Reference to a field of type 'AchievementStrategy[]'
+ */
+export type ListEnumAchievementStrategyFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AchievementStrategy[]'>
+    
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -1060,6 +1296,8 @@ export type GlobalOmitConfig = {
   processedEvent?: Prisma.ProcessedEventOmit
   pointsTransaction?: Prisma.PointsTransactionOmit
   outboxEvent?: Prisma.OutboxEventOmit
+  achievement?: Prisma.AchievementOmit
+  userAchievement?: Prisma.UserAchievementOmit
 }
 
 /* Types for Logging */

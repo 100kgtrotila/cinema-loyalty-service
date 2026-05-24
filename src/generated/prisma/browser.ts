@@ -37,3 +37,13 @@ export type PointsTransaction = Prisma.PointsTransactionModel
  * 
  */
 export type OutboxEvent = Prisma.OutboxEventModel
+/**
+ * Model Achievement
+ * 
+ */
+export type Achievement = Prisma.AchievementModel
+/**
+ * Model UserAchievement
+ * 
+ */
+export type UserAchievement = Prisma.UserAchievementModel

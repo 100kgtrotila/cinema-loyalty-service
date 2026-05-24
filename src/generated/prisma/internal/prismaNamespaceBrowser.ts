@@ -54,7 +54,9 @@ export const ModelName = {
   LoyaltyProfile: 'LoyaltyProfile',
   ProcessedEvent: 'ProcessedEvent',
   PointsTransaction: 'PointsTransaction',
-  OutboxEvent: 'OutboxEvent'
+  OutboxEvent: 'OutboxEvent',
+  Achievement: 'Achievement',
+  UserAchievement: 'UserAchievement'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -132,6 +134,43 @@ export const OutboxEventScalarFieldEnum = {
 } as const
 
 export type OutboxEventScalarFieldEnum = (typeof OutboxEventScalarFieldEnum)[keyof typeof OutboxEventScalarFieldEnum]
+
+
+export const AchievementScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  name: 'name',
+  description: 'description',
+  secretHint: 'secretHint',
+  isSecret: 'isSecret',
+  icon: 'icon',
+  category: 'category',
+  rarity: 'rarity',
+  strategy: 'strategy',
+  criteria: 'criteria',
+  rewardPoints: 'rewardPoints',
+  sortOrder: 'sortOrder',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AchievementScalarFieldEnum = (typeof AchievementScalarFieldEnum)[keyof typeof AchievementScalarFieldEnum]
+
+
+export const UserAchievementScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  achievementId: 'achievementId',
+  current: 'current',
+  target: 'target',
+  isUnlocked: 'isUnlocked',
+  unlockedAt: 'unlockedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type UserAchievementScalarFieldEnum = (typeof UserAchievementScalarFieldEnum)[keyof typeof UserAchievementScalarFieldEnum]
 
 
 export const SortOrder = {
