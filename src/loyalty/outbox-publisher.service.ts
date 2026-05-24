@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { EventEmitter2 } from 'eventemitter2';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RawOutboxEvent } from './interfaces/raw-outbox-event.interface';
+import { CRON_SCHEDULES } from './constants/loyalty.constants';
 
 @Injectable()
 export class OutboxPublisherService {
@@ -12,9 +13,9 @@ export class OutboxPublisherService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
-  ) {}
+  ) { }
 
-  @Cron('*/5 * * * * *')
+  @Cron(CRON_SCHEDULES.EVERY_5_SECONDS)
   async publishPendingEvents(): Promise<void> {
     const events = await this.prisma.$queryRaw<RawOutboxEvent[]>`
       UPDATE "outbox_events"
@@ -72,9 +73,9 @@ export class OutboxPublisherService {
 
       this.logger.error(
         `Outbox event ${event.id} (${event.type}) failed. ` +
-          `Attempt ${attempts}/${this.MAX_ATTEMPTS}. ` +
-          `${isFinal ? 'FINAL FAILURE' : 'Will retry'}. ` +
-          `Error: ${errorMessage}`,
+        `Attempt ${attempts}/${this.MAX_ATTEMPTS}. ` +
+        `${isFinal ? 'FINAL FAILURE' : 'Will retry'}. ` +
+        `Error: ${errorMessage}`,
       );
     }
   }
