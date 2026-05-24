@@ -48,6 +48,7 @@ export const LOYALTY_JOBS = {
 } as const;
 
 export const CRON_SCHEDULES = {
+  EVERY_5_SECONDS: '*/5 * * * * *',
   EVERY_NIGHT_03_00: '0 3 * * *',
   EVERY_NIGHT_04_00: '0 4 * * *',
   FIRST_OF_JAN_00_05: '5 0 1 1 *',
@@ -61,4 +62,19 @@ export const INJECTION_TOKENS = {
 export const RABBITMQ_EVENTS = {
   POINTS_EXPIRING: 'loyalty.points_expiring',
   TIER_UPGRADED: 'loyalty.tier_upgraded',
+} as const;
+
+export const ERROR_MESSAGES = {
+  PROFILE_NOT_FOUND: 'Loyalty profile not found for user',
+  INSUFFICIENT_POINTS: 'Insufficient points balance',
+  INTERNAL_ERROR: 'Internal server error processing loyalty points',
+  NOT_GOLD_TIER: 'User is not in Gold tier',
+  GOLD_QUOTA_EXCEEDED: 'Gold upgrade quota already used for this month',
+  INTERNAL_GOLD_UPGRADE: 'Failed to process gold upgrade',
+  INTERNAL_GOLD_ROLLBACK: 'Failed to rollback gold upgrade',
+  INTERNAL_REFUND: 'Failed to process refund',
+} as const;
+
+export const TRANSACTION_DESCRIPTIONS = {
+  POINTS_EXPIRED: 'Points expired',
 } as const;
