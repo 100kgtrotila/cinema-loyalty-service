@@ -47,3 +47,8 @@ export interface CalculateDiscountResponse {
   pointsToDeduct: number;
   amountToPay: number;
 }
+
+export interface RollbackGoldUpgradeResponse {
+  success: boolean;
+  errorMessage?: string;
+}

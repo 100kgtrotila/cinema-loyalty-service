@@ -38,6 +38,7 @@ export const LOYALTY_RULES = {
 };
 
 export const LOYALTY_QUEUE_NAME = 'loyalty-queue';
+export const LOYALTY_PUBLISHER_NAME = 'LOYALTY_PUBLISHER';
 
 export const LOYALTY_JOBS = {
   EXPIRE_POINTS: 'expire-points',

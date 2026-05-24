@@ -25,3 +25,8 @@ export interface RefundPointsRequest {
   orderId: string;
   idempotencyKey: string;
 }
+
+export interface RollbackGoldUpgradeRequest {
+  userId: string;
+  orderId: string;
+}

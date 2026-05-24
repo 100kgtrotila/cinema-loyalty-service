@@ -5,12 +5,16 @@ import { ClientsModule } from '@nestjs/microservices';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LoyaltyService } from './loyalty.service';
 import { LoyaltyController } from './loyalty.controller';
+import { LoyaltyRestController } from './loyalty.rest.controller';
 import { TicketPurchasedConsumer } from './consumers/ticket-purchased.consumer';
 import { TierUpgradeListener } from './notifications/tier-upgrade.listener';
 import { BullModule } from '@nestjs/bullmq';
 import { getBullConfig } from 'src/config/bullmq.config';
 import { getRabbitMqConfig } from 'src/config/rabbitmq.config';
-import { LOYALTY_QUEUE_NAME } from './constants/loyalty.constants';
+import {
+  LOYALTY_PUBLISHER_NAME,
+  LOYALTY_QUEUE_NAME,
+} from './constants/loyalty.constants';
 import { LoyaltyExpirationService } from './loyalty-expiration.service';
 import { LoyaltySchedulerProducer } from './producers/loyalty-scheduler.producer';
 import { LoyaltyQueueProcessor } from './processors/loyalty-queue.processor';
@@ -36,14 +40,18 @@ import { OutboxPublisherService } from './outbox-publisher.service';
     // RABBIT MQ
     ClientsModule.registerAsync([
       {
-        name: 'LOYALTY_PUBLISHER',
+        name: LOYALTY_PUBLISHER_NAME,
         imports: [ConfigModule],
         inject: [ConfigService],
         useFactory: getRabbitMqConfig,
       },
     ]),
   ],
-  controllers: [LoyaltyController, TicketPurchasedConsumer],
+  controllers: [
+    LoyaltyController,
+    LoyaltyRestController,
+    TicketPurchasedConsumer,
+  ],
   providers: [
     LoyaltyService,
     LoyaltyExpirationService,

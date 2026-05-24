@@ -33,6 +33,7 @@ service LoyaltyService {
   rpc UseGoldUpgrade(UseGoldUpgradeRequest) returns (UseGoldUpgradeResponse);
   rpc RefundPoints(RefundPointsRequest) returns (RefundPointsResponse);
   rpc CalculateDiscount(CalculateDiscountRequest) returns (CalculateDiscountResponse);
+  rpc RollbackGoldUpgrade(RollbackGoldUpgradeRequest) returns (RollbackGoldUpgradeResponse);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -121,7 +122,7 @@ message RefundPointsResponse {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CalculateDiscountRequest
-//
+// ─────────────────────────────────────────────────────────────────────────────
 
 message CalculateDiscountRequest {
   string user_id = 1;
@@ -132,4 +133,18 @@ message CalculateDiscountResponse {
   bool is_allowed = 1;
   int32 points_to_deduct = 2;
   double amount_to_pay = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RollbackGoldUpgradeRequest
+// ─────────────────────────────────────────────────────────────────────────────
+
+message RollbackGoldUpgradeRequest {
+  string user_id = 1;
+  string order_id = 2;
+}
+
+message RollbackGoldUpgradeResponse {
+  bool success = 1;
+  string error_message = 2;
 }

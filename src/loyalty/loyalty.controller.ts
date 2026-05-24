@@ -7,10 +7,12 @@ import type {
   GetBalanceRequest,
   GetFullProfileRequest,
   RefundPointsRequest,
+  RollbackGoldUpgradeRequest,
   UseGoldUpgradeRequest,
 } from './interfaces/loyalty-request.interface';
 import { GrpcApiKeyGuard } from 'src/guards/grpc-api-key.guard';
 import { LoyaltyExpirationService } from './loyalty-expiration.service';
+import { RollbackGoldUpgradeResponse } from './interfaces/loyalty-response.interface';
 
 @Controller()
 @UseGuards(GrpcApiKeyGuard)
@@ -58,5 +60,12 @@ export class LoyaltyController {
       data.orderId,
       data.idempotencyKey,
     );
+  }
+
+  @GrpcMethod('LoyaltyService', 'RollbackGoldUpgrade')
+  async rollbackGoldUpgrade(
+    data: RollbackGoldUpgradeRequest,
+  ): Promise<RollbackGoldUpgradeResponse> {
+    return this.loyaltyService.rollbackGoldUpgrade(data.userId, data.orderId);
   }
 }

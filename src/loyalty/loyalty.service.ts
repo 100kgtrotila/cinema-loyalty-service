@@ -11,6 +11,7 @@ import {
   DeductPointsResponse,
   GetBalanceResponse,
   GetFullProfileResponse,
+  RollbackGoldUpgradeResponse,
   UseGoldUpgradeResponse,
 } from './interfaces/loyalty-response.interface';
 import { LoyaltyProfileSnapshot } from './interfaces/loyalty-profile.inteface';
@@ -357,6 +358,64 @@ export class LoyaltyService {
       pointsToDeduct,
       amountToPay,
     };
+  }
+
+  async rollbackGoldUpgrade(
+    userId: string,
+    orderId: string,
+  ): Promise<RollbackGoldUpgradeResponse> {
+    try {
+      const profile = await this.prisma.loyaltyProfile.findUnique({
+        where: { userId },
+        select: { tier: true },
+      });
+
+      if (!profile) {
+        return {
+          success: false,
+          errorMessage: `Profile not found for user ${userId}`,
+        };
+      }
+
+      if (profile.tier !== Tier.GOLD) {
+        return { success: false, errorMessage: 'User is not GOLD tier' };
+      }
+
+      await this.prisma.loyaltyProfile.update({
+        where: { userId },
+        data: { goldUpgradeUsedMonth: null },
+      });
+
+      this.logger.log(
+        `Gold upgrade successfully rolled back for ${userId} (Order: ${orderId})`,
+      );
+      return { success: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Rollback failed for ${userId}: ${message}`);
+
+      return {
+        success: false,
+        errorMessage: 'Internal error during gold upgrade rollback',
+      };
+    }
+  }
+
+  async getUserTransactions(userId: string) {
+    const transactions = await this.prisma.pointsTransaction.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return transactions.map((t) => ({
+      id: t.id,
+      type: t.type,
+      points: t.points,
+      balanceAfter: t.balanceAfter,
+      orderId: t.orderId,
+      description: t.description,
+      createdAt: t.createdAt,
+    }));
   }
 
   // HELPERS
