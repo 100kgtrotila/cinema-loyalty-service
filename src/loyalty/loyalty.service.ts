@@ -16,7 +16,7 @@ import {
 import { LoyaltyProfileSnapshot } from './interfaces/loyalty-profile.inteface';
 import { LoyaltyMapper } from 'src/utils/loyalty.mapper';
 import { LoyaltyCalculatorService } from './loyalty-calculator.service';
-import { PointsTransactionType } from './constants/points-transaction-type.enum';
+import { PointsTransactionType } from './events/points-transaction-type.enum';
 
 @Injectable()
 export class LoyaltyService {

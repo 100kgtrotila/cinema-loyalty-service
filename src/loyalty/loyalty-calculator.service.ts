@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Tier } from 'src/generated/prisma/enums';
 import { EventType } from './enums/event-type.enum';
-import { PointsTransactionType } from './constants/points-transaction-type.enum';
+import { PointsTransactionType } from './events/points-transaction-type.enum';
 import {
   LOYALTY_RULES,
   TIER_ORDER,
