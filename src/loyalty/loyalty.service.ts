@@ -3,7 +3,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Tier } from 'src/generated/prisma/enums';
 import { TicketPurchasedDto } from './dto/ticked-purchased.dto';
 import EventEmitter2 from 'eventemitter2';
-import { LOYALTY_RULES } from './constants/loyalty.constants';
 import { RpcException } from '@nestjs/microservices';
 import { GrpcStatus } from 'src/common/grpc-status';
 import {
@@ -18,6 +17,10 @@ import { LoyaltyProfileSnapshot } from './interfaces/loyalty-profile.inteface';
 import { LoyaltyMapper } from 'src/utils/loyalty.mapper';
 import { LoyaltyCalculatorService } from './loyalty-calculator.service';
 import { PointsTransactionType } from './events/points-transaction-type.enum';
+import { AchievementsService } from 'src/achievements/achievements.service';
+import { AchievementAction } from 'src/achievements/enums/achievement-action.enum';
+import { OutboxEventType, AggregateType } from './enums/loyalty.enums';
+import { ERROR_MESSAGES, LOYALTY_RULES } from './constants/loyalty.constants';
 
 @Injectable()
 export class LoyaltyService {
@@ -27,7 +30,8 @@ export class LoyaltyService {
     private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
     private readonly calculator: LoyaltyCalculatorService,
-  ) {}
+    private readonly achievementsService: AchievementsService,
+  ) { }
 
   async getBalance(userId: string): Promise<GetBalanceResponse> {
     const profile = await this.prisma.loyaltyProfile.findUnique({
@@ -43,7 +47,7 @@ export class LoyaltyService {
     if (!profile) {
       throw new RpcException({
         code: GrpcStatus.NOT_FOUND,
-        message: `Profile not found for user ${userId}`,
+        message: `${ERROR_MESSAGES.PROFILE_NOT_FOUND} ${userId}`,
       });
     }
 
@@ -63,7 +67,7 @@ export class LoyaltyService {
     if (!profile) {
       throw new RpcException({
         code: GrpcStatus.NOT_FOUND,
-        message: `Loyalty profile not found for user ${userId}`,
+        message: `${ERROR_MESSAGES.PROFILE_NOT_FOUND} ${userId}`,
       });
     }
 
@@ -122,7 +126,7 @@ export class LoyaltyService {
         if (!profile) {
           throw new RpcException({
             code: GrpcStatus.NOT_FOUND,
-            message: `Profile not found for user ${userId}`,
+            message: `${ERROR_MESSAGES.PROFILE_NOT_FOUND} ${userId}`,
           });
         }
 
@@ -130,7 +134,7 @@ export class LoyaltyService {
           return {
             success: false,
             balanceAfter: profile.balance,
-            errorMessage: 'Insufficient points balance',
+            errorMessage: ERROR_MESSAGES.INSUFFICIENT_POINTS,
           };
         }
 
@@ -172,7 +176,7 @@ export class LoyaltyService {
       return {
         success: false,
         balanceAfter: 0,
-        errorMessage: 'Internal error',
+        errorMessage: ERROR_MESSAGES.INTERNAL_ERROR,
       };
     }
   }
@@ -207,17 +211,17 @@ export class LoyaltyService {
         if (!profile) {
           throw new RpcException({
             code: GrpcStatus.NOT_FOUND,
-            message: `Profile not found for user ${userId}`,
+            message: `${ERROR_MESSAGES.PROFILE_NOT_FOUND} ${userId}`,
           });
         }
 
         if (profile.tier !== Tier.GOLD) {
-          return { success: false, errorMessage: 'User is not GOLD tier' };
+          return { success: false, errorMessage: ERROR_MESSAGES.NOT_GOLD_TIER };
         }
 
         return {
           success: false,
-          errorMessage: 'Gold upgrade quota exceeded for this month',
+          errorMessage: ERROR_MESSAGES.GOLD_QUOTA_EXCEEDED,
         };
       }
 
@@ -229,7 +233,7 @@ export class LoyaltyService {
       this.logger.error(`useGoldUpgrade failed for ${userId}: ${message}`);
       throw new RpcException({
         code: GrpcStatus.INTERNAL,
-        message: 'Internal error during gold upgrade',
+        message: ERROR_MESSAGES.INTERNAL_GOLD_UPGRADE,
       });
     }
   }
@@ -306,9 +310,9 @@ export class LoyaltyService {
 
           await trx.outboxEvent.create({
             data: {
-              type: 'loyalty.tier_upgraded',
+              type: OutboxEventType.TIER_UPGRADED,
               payload: upgradePayload,
-              aggregateType: 'LoyaltyProfile',
+              aggregateType: AggregateType.LOYALTY_PROFILE,
               aggregateId: msg.userId,
             },
           });
@@ -318,6 +322,11 @@ export class LoyaltyService {
           );
         }
       });
+      await this.achievementsService.dispatchEvent(
+        msg.eventId,
+        msg.userId,
+        AchievementAction.TICKET_PURCHASED,
+      );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
@@ -373,12 +382,12 @@ export class LoyaltyService {
       if (!profile) {
         return {
           success: false,
-          errorMessage: `Profile not found for user ${userId}`,
+          errorMessage: `${ERROR_MESSAGES.PROFILE_NOT_FOUND} ${userId}`,
         };
       }
 
       if (profile.tier !== Tier.GOLD) {
-        return { success: false, errorMessage: 'User is not GOLD tier' };
+        return { success: false, errorMessage: ERROR_MESSAGES.NOT_GOLD_TIER };
       }
 
       await this.prisma.loyaltyProfile.update({
@@ -396,7 +405,7 @@ export class LoyaltyService {
 
       return {
         success: false,
-        errorMessage: 'Internal error during gold upgrade rollback',
+        errorMessage: ERROR_MESSAGES.INTERNAL_GOLD_ROLLBACK,
       };
     }
   }
