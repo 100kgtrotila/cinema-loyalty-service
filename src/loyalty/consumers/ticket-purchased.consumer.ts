@@ -10,14 +10,15 @@ import { validate } from 'class-validator';
 import type { Channel, ConsumeMessage } from 'amqplib';
 import { LoyaltyService } from '../loyalty.service';
 import { TicketPurchasedDto } from '../dto/ticked-purchased.dto';
+import { EventPatternType } from '../enums/loyalty.enums';
 
 @Controller()
 export class TicketPurchasedConsumer {
   private readonly logger = new Logger(TicketPurchasedConsumer.name);
 
-  constructor(private readonly loyaltyService: LoyaltyService) {}
+  constructor(private readonly loyaltyService: LoyaltyService) { }
 
-  @EventPattern('TicketPurchased')
+  @EventPattern(EventPatternType.TICKET_PURCHASED)
   async handle(
     @Payload() data: unknown,
     @Ctx() ctx: RmqContext,
