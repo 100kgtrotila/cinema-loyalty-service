@@ -21,6 +21,7 @@ import { LoyaltyQueueProcessor } from './processors/loyalty-queue.processor';
 import { LoyaltyCalculatorService } from './loyalty-calculator.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { OutboxPublisherService } from './outbox-publisher.service';
+import { AchievementsModule } from 'src/achievements/achievements.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { OutboxPublisherService } from './outbox-publisher.service';
     PrismaModule,
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
+    AchievementsModule,
     // BULL MQ
     BullModule.forRootAsync({
       imports: [ConfigModule],
