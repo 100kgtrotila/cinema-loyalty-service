@@ -88,3 +88,81 @@ model OutboxEvent {
   @@index([aggregateType, aggregateId])
   @@map("outbox_events")
 }
+
+enum AchievementCategory {
+  VISITS
+  SPENDING
+  TIER
+  TIME
+  SPECIAL
+  STREAK
+  SECRET
+}
+
+enum AchievementRarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum AchievementStrategy {
+  INSTANT
+  THRESHOLD
+  STREAK
+}
+
+model Achievement {
+  id           String              @id @default(uuid()) @db.Uuid
+  code         String              @unique @db.VarChar(64)
+
+  name         String              @db.VarChar(128)
+  description  String              @db.Text
+  secretHint   String?             @map("secret_hint") @db.Text
+  isSecret     Boolean             @default(false) @map("is_secret")
+
+  icon         String              @db.VarChar(128)
+  category     AchievementCategory
+  rarity       AchievementRarity   @default(COMMON)
+  strategy     AchievementStrategy @default(INSTANT)
+
+  criteria     Json                @db.JsonB
+
+  rewardPoints Int                 @default(0) @map("reward_points")
+  sortOrder    Int                 @default(0) @map("sort_order") @db.SmallInt
+  isActive     Boolean             @default(true) @map("is_active")
+
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz()
+
+  userAchievements UserAchievement[]
+
+  @@index([category])
+  @@index([isActive])
+  @@map("achievements")
+}
+
+
+model UserAchievement {
+  id            String      @id @default(uuid()) @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  achievementId String      @map("achievement_id") @db.Uuid
+
+  current       Int         @default(0) @db.Integer
+  target        Int         @default(1) @db.Integer
+
+  isUnlocked    Boolean     @default(false) @map("is_unlocked")
+  unlockedAt    DateTime?   @map("unlocked_at") @db.Timestamptz()
+
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
+
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([userId, isUnlocked])
+  @@index([achievementId])
+  @@map("user_achievements")
+}
