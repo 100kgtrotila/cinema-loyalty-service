@@ -12,7 +12,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { getBullConfig } from 'src/config/bullmq.config';
 import { getRabbitMqConfig } from 'src/config/rabbitmq.config';
 import {
-  LOYALTY_PUBLISHER_NAME,
+  INJECTION_TOKENS,
   LOYALTY_QUEUE_NAME,
 } from './constants/loyalty.constants';
 import { LoyaltyExpirationService } from './loyalty-expiration.service';
@@ -40,7 +40,7 @@ import { OutboxPublisherService } from './outbox-publisher.service';
     // RABBIT MQ
     ClientsModule.registerAsync([
       {
-        name: LOYALTY_PUBLISHER_NAME,
+        name: INJECTION_TOKENS.RABBITMQ_LOYALTY_CLIENT,
         imports: [ConfigModule],
         inject: [ConfigService],
         useFactory: getRabbitMqConfig,
@@ -62,4 +62,4 @@ import { OutboxPublisherService } from './outbox-publisher.service';
     OutboxPublisherService,
   ],
 })
-export class LoyaltyModule {}
+export class LoyaltyModule { }
