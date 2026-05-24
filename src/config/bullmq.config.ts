@@ -8,7 +8,7 @@ export function getBullConfig(
     connection: {
       host: configService.getOrThrow<string>('REDIS_HOST'),
       port: configService.getOrThrow<number>('REDIS_PORT'),
-      password: configService.get<string>('REDIS_PASSWORD'),
+      password: configService.getOrThrow<string>('REDIS_PASSWORD'),
     },
     defaultJobOptions: {
       removeOnComplete: true,
