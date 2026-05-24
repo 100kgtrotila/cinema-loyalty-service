@@ -10,7 +10,10 @@ import {
 import { ClientProxy } from '@nestjs/microservices';
 import { RefundPointsResponse } from './interfaces/loyalty-response.interface';
 import { PointsTransactionType } from './events/points-transaction-type.enum';
-import { ERROR_MESSAGES, TRANSACTION_DESCRIPTIONS } from './constants/loyalty.constants';
+import {
+  ERROR_MESSAGES,
+  TRANSACTION_DESCRIPTIONS,
+} from './constants/loyalty.constants';
 
 @Injectable()
 export class LoyaltyExpirationService {
@@ -20,7 +23,7 @@ export class LoyaltyExpirationService {
     private readonly prisma: PrismaService,
     @Inject(INJECTION_TOKENS.RABBITMQ_LOYALTY_CLIENT)
     private readonly rabbitClient: ClientProxy,
-  ) { }
+  ) {}
 
   async notifyExpiringUsers(
     onProgress?: (processedTotal: number) => Promise<void>,

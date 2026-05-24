@@ -13,7 +13,7 @@ export class OutboxPublisherService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
-  ) { }
+  ) {}
 
   @Cron(CRON_SCHEDULES.EVERY_5_SECONDS)
   async publishPendingEvents(): Promise<void> {
@@ -73,9 +73,9 @@ export class OutboxPublisherService {
 
       this.logger.error(
         `Outbox event ${event.id} (${event.type}) failed. ` +
-        `Attempt ${attempts}/${this.MAX_ATTEMPTS}. ` +
-        `${isFinal ? 'FINAL FAILURE' : 'Will retry'}. ` +
-        `Error: ${errorMessage}`,
+          `Attempt ${attempts}/${this.MAX_ATTEMPTS}. ` +
+          `${isFinal ? 'FINAL FAILURE' : 'Will retry'}. ` +
+          `Error: ${errorMessage}`,
       );
     }
   }

@@ -31,7 +31,7 @@ export class LoyaltyService {
     private readonly emitter: EventEmitter2,
     private readonly calculator: LoyaltyCalculatorService,
     private readonly achievementsService: AchievementsService,
-  ) { }
+  ) {}
 
   async getBalance(userId: string): Promise<GetBalanceResponse> {
     const profile = await this.prisma.loyaltyProfile.findUnique({

@@ -62,4 +62,4 @@ import { OutboxPublisherService } from './outbox-publisher.service';
     OutboxPublisherService,
   ],
 })
-export class LoyaltyModule { }
+export class LoyaltyModule {}

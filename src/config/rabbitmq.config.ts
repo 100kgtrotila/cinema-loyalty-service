@@ -1,6 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import { ClientProviderOptions, Transport } from '@nestjs/microservices';
-import { INJECTION_TOKENS, LOYALTY_QUEUE_NAME } from 'src/loyalty/constants/loyalty.constants';
+import {
+  INJECTION_TOKENS,
+  LOYALTY_QUEUE_NAME,
+} from 'src/loyalty/constants/loyalty.constants';
 
 export function getRabbitMqConfig(
   configService: ConfigService,

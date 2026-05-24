@@ -1,10 +1,5 @@
 import { Controller, Logger } from '@nestjs/common';
-import {
-  Ctx,
-  EventPattern, // ← ЗМІНИТИ з MessagePattern на EventPattern
-  Payload,
-  RmqContext,
-} from '@nestjs/microservices';
+import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import type { Channel, ConsumeMessage } from 'amqplib';
@@ -16,7 +11,7 @@ import { EventPatternType } from '../enums/loyalty.enums';
 export class TicketPurchasedConsumer {
   private readonly logger = new Logger(TicketPurchasedConsumer.name);
 
-  constructor(private readonly loyaltyService: LoyaltyService) { }
+  constructor(private readonly loyaltyService: LoyaltyService) {}
 
   @EventPattern(EventPatternType.TICKET_PURCHASED)
   async handle(
