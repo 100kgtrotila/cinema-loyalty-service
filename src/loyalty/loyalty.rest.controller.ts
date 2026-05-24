@@ -5,7 +5,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('loyalty')
 export class LoyaltyRestController {
-  constructor(private readonly loyaltyService: LoyaltyService) {}
+  constructor(private readonly loyaltyService: LoyaltyService) { }
 
   @Get('my-transactions')
   @UseGuards(JwtAuthGuard)
