@@ -20,7 +20,7 @@ export class LoyaltyController {
   constructor(
     private readonly loyaltyService: LoyaltyService,
     private readonly loyaltyExpiration: LoyaltyExpirationService,
-  ) {}
+  ) { }
 
   @GrpcMethod('LoyaltyService', 'GetBalance')
   getBalance(data: GetBalanceRequest) {
