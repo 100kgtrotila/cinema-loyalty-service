@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Achievement, AchievementStrategy } from 'src/generated/prisma/client';
+import { Achievement } from 'src/generated/prisma/client';
 import { PointsTransactionType } from 'src/loyalty/events/points-transaction-type.enum';
 import { AchievementCriteria } from '../interfaces/achievement-creteria.interface';
 import { ActionEvent } from '../interfaces/action-event.interface';
@@ -69,8 +69,10 @@ export class AchievementsProcessor extends WorkerHost {
           data: { eventId: uniqueProcessId },
         });
       } catch (error: any) {
-        if (error.code === 'P2002') {
-          this.logger.warn(`Event ${uniqueProcessId} already processed. Skipping.`);
+        if (error === 'P2002') {
+          this.logger.warn(
+            `Event ${uniqueProcessId} already processed. Skipping.`,
+          );
           return;
         }
         throw error;
