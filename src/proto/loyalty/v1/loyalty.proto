@@ -37,6 +37,8 @@ service LoyaltyService {
   rpc GetAdminUserBalance(GetAdminUserBalanceRequest) returns (GetAdminUserBalanceResponse);
   rpc GetAdminTransactionHistory(GetAdminTransactionHistoryRequest) returns (GetAdminTransactionHistoryResponse);
   rpc ModifyUserPoints(ModifyUserPointsRequest) returns (ModifyUserPointsResponse);
+  rpc GetAdminUsers(GetAdminUsersRequest) returns (GetAdminUsersResponse);
+  rpc GrantVipStatus(GrantVipStatusRequest) returns (GrantVipStatusResponse);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,4 +200,35 @@ message ModifyUserPointsResponse {
   string tier = 2;
   int32 balance = 3;
   bool success = 4;
+}
+
+message GetAdminUsersRequest {
+  int32 limit = 1;
+  int32 skip = 2;
+  string tier_filter = 3;
+  repeated string user_ids = 4;
+}
+
+message AdminUserProfile {
+  string user_id = 1;
+  string tier = 2;
+  int32 balance = 3;
+  int32 lifetime_points = 4;
+}
+
+message GetAdminUsersResponse {
+  repeated AdminUserProfile profiles = 1;
+  int32 total_count = 2;
+}
+
+message GrantVipStatusRequest {
+  string user_id = 1;
+  string admin_id = 2;
+  string reason = 3;
+}
+
+message GrantVipStatusResponse {
+  string user_id = 1;
+  string new_tier = 2;
+  bool success = 3;
 }

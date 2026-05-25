@@ -105,4 +105,32 @@ export class LoyaltyController {
       data.reason,
     );
   }
+
+  @GrpcMethod('LoyaltyService', 'GetAdminUsers')
+  async getAdminUsers(data: {
+    limit?: number;
+    skip?: number;
+    tierFilter?: string;
+    userIds?: string[];
+  }) {
+    return this.adminLoyaltyService.getUsersGrpc(
+      data.limit ?? 50,
+      data.skip ?? 0,
+      data.tierFilter,
+      data.userIds,
+    );
+  }
+
+  @GrpcMethod('LoyaltyService', 'GrantVipStatus')
+  async grantVipStatus(data: {
+    userId: string;
+    adminId: string;
+    reason: string;
+  }) {
+    return this.adminLoyaltyService.grantVipStatusGrpc(
+      data.userId,
+      data.adminId,
+      data.reason,
+    );
+  }
 }

@@ -6,6 +6,7 @@ import { OutboxEventType, AggregateType } from '../loyalty/enums/loyalty.enums';
 import { RpcException } from '@nestjs/microservices';
 import { GrpcStatus } from 'src/common/grpc-status';
 import { LoyaltyMapper } from 'src/utils/loyalty.mapper';
+import { Prisma, Tier } from 'src/generated/prisma/client';
 
 @Injectable()
 export class AdminLoyaltyService {
@@ -165,5 +166,93 @@ export class AdminLoyaltyService {
         message: 'An error occurred while modifying points.',
       });
     }
+  }
+
+  async getUsersGrpc(
+    limit: number,
+    skip: number,
+    tierFilter?: string,
+    userIds?: string[],
+  ) {
+    const whereClause: Prisma.LoyaltyProfileWhereInput = {};
+
+    if (tierFilter) {
+      whereClause.tier = tierFilter as Tier;
+    }
+
+    if (userIds && userIds.length > 0) {
+      whereClause.userId = { in: userIds };
+    }
+
+    const [profiles, totalCount] = await Promise.all([
+      this.prisma.loyaltyProfile.findMany({
+        where: whereClause,
+        orderBy: { lifetimePoints: 'desc' },
+        take: limit,
+        skip: skip,
+      }),
+      this.prisma.loyaltyProfile.count({ where: whereClause }),
+    ]);
+
+    return {
+      profiles: profiles.map((p) => ({
+        userId: p.userId,
+        tier: LoyaltyMapper.toGrpcTier(p.tier),
+        balance: p.balance,
+        lifetimePoints: p.lifetimePoints,
+      })),
+      totalCount,
+    };
+  }
+
+  async grantVipStatusGrpc(userId: string, adminId: string, reason: string) {
+    const profile = await this.prisma.loyaltyProfile.upsert({
+      where: { userId },
+      create: { userId },
+      update: {},
+    });
+
+    if (profile.tier === 'GOLD') {
+      throw new RpcException({
+        code: GrpcStatus.ALREADY_EXISTS,
+        message: 'User is already a VIP (GOLD tier).',
+      });
+    }
+
+    const updatedProfile = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.loyaltyProfile.update({
+        where: { userId },
+        data: { tier: 'GOLD' },
+      });
+
+      await tx.pointsTransaction.create({
+        data: {
+          userId,
+          type: AdminTransactionType.ADDITION,
+          points: 0,
+          balanceAfter: updated.balance,
+          description: `[Admin: ${adminId}] VIP Status Granted. Reason: ${reason}`,
+        },
+      });
+
+      await tx.outboxEvent.create({
+        data: {
+          type: OutboxEventType.TIER_UPGRADED,
+          payload: { userId, oldTier: profile.tier, newTier: 'GOLD' },
+          aggregateType: AggregateType.LOYALTY_PROFILE,
+          aggregateId: userId,
+        },
+      });
+
+      return updated;
+    });
+
+    this.logger.log(`[${userId}] VIP Status granted by admin ${adminId}`);
+
+    return {
+      userId: updatedProfile.userId,
+      newTier: LoyaltyMapper.toGrpcTier(updatedProfile.tier),
+      success: true,
+    };
   }
 }
