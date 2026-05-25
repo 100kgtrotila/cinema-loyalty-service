@@ -4,8 +4,8 @@ import { Queue } from 'bullmq';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma } from 'src/generated/prisma/client';
 import {
+  ACHIEVEMENT_JOB_NAME,
   ACHIEVEMENTS_QUEUE,
-  ACHIVEMENT_QUEUE_NAME,
 } from './constants/achievements.constants';
 import { GetUserAchievementsRequest } from './interfaces/achievements-request.interface';
 import { GetUserAchievementsResponse } from './interfaces/achievements-response.interface';
@@ -23,9 +23,20 @@ export class AchievementsService {
   ) {}
 
   async dispatchEvent(event: ActionEvent): Promise<void> {
-    await this.queue.add(ACHIVEMENT_QUEUE_NAME, event);
-    this.logger.debug(
-      `Dispatched achievement event: ${event.actionType} for user ${event.userId}`,
+    this.logger.log(
+      `Queueing achievement event: eventId=${event.eventId}, userId=${event.userId}, actionType=${event.actionType}`,
+    );
+
+    if (event.metadata) {
+      this.logger.debug(
+        `Achievement event metadata: ${JSON.stringify(event.metadata)}`,
+      );
+    }
+
+    const job = await this.queue.add(ACHIEVEMENT_JOB_NAME, event);
+
+    this.logger.log(
+      `Achievement job queued: jobId=${job.id}, queue=${ACHIEVEMENTS_QUEUE}, jobName=${ACHIEVEMENT_JOB_NAME}, eventId=${event.eventId}`,
     );
   }
 

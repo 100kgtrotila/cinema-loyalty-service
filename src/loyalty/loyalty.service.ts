@@ -313,11 +313,6 @@ export class LoyaltyService {
         }
       });
       await this.achievementsService.dispatchEvent({
-        eventId: msg.eventId,
-        userId: msg.userId,
-        actionType: AchievementAction.TICKET_PURCHASED,
-      });
-      await this.achievementsService.dispatchEvent({
         eventId: msg.orderId,
         userId: msg.userId,
         actionType: AchievementAction.TICKET_PURCHASED,

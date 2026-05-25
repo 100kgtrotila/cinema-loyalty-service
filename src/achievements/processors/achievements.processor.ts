@@ -5,10 +5,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Achievement, Prisma } from 'src/generated/prisma/client';
 import { PointsTransactionType } from 'src/loyalty/events/points-transaction-type.enum';
 import { ActionEvent } from '../interfaces/action-event.interface';
-import { ACHIVEMENT_QUEUE_NAME } from '../constants/achievements.constants';
 import { ActionEventSchema, CriteriaSchema } from '../schemas/events.schemas';
+import { ACHIEVEMENTS_QUEUE } from '../constants/achievements.constants';
 
-@Processor(ACHIVEMENT_QUEUE_NAME)
+@Processor(ACHIEVEMENTS_QUEUE)
 export class AchievementsProcessor extends WorkerHost {
   private readonly logger = new Logger(AchievementsProcessor.name);
 
@@ -23,6 +23,17 @@ export class AchievementsProcessor extends WorkerHost {
       return;
     }
 
+    const event = job.data;
+
+    this.logger.log(
+      `Processing achievement job: jobId=${job.id}, queue=${job.queueName}, jobName=${job.name}, eventId=${event.eventId}, userId=${event.userId}, actionType=${event.actionType}`,
+    );
+
+    if (event.metadata) {
+      this.logger.debug(
+        `Achievement processing metadata: ${JSON.stringify(event.metadata)}`,
+      );
+    }
     const { eventId, userId, actionType } = parsed.data;
 
     const matchingAchievements = await this.prisma.achievement.findMany({

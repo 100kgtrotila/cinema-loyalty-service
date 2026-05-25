@@ -18,6 +18,9 @@ export class TicketPurchasedConsumer {
     @Payload() data: unknown,
     @Ctx() ctx: RmqContext,
   ): Promise<void> {
+    this.logger.log(
+      `TicketPurchased message received: ${JSON.stringify(data)}`,
+    );
     const channel = ctx.getChannelRef() as Channel;
     const originalMsg = ctx.getMessage() as ConsumeMessage;
 
