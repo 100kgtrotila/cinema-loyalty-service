@@ -1,87 +1,109 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminTransactionType } from './constants/admin-loyalty.constants';
+import { LoyaltyCalculatorService } from '../loyalty/loyalty-calculator.service';
+import { OutboxEventType, AggregateType } from '../loyalty/enums/loyalty.enums';
+import { RpcException } from '@nestjs/microservices';
+import { GrpcStatus } from 'src/common/grpc-status';
+import { LoyaltyMapper } from 'src/utils/loyalty.mapper';
 
 @Injectable()
 export class AdminLoyaltyService {
   private readonly logger = new Logger(AdminLoyaltyService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly calculator: LoyaltyCalculatorService,
+  ) {}
 
-  async getUserBalance(userId: string) {
-    const profile = await this.prisma.loyaltyProfile.findUnique({
+  async getUserBalanceGrpc(userId: string) {
+    const profile = await this.prisma.loyaltyProfile.upsert({
       where: { userId },
+      create: { userId },
+      update: {},
       select: { balance: true, tier: true, lifetimePoints: true },
     });
 
-    if (!profile) {
-      throw new NotFoundException(
-        `Loyalty profile for user ${userId} not found.`,
-      );
-    }
-
-    return profile;
+    return {
+      balance: profile.balance,
+      lifetimePoints: profile.lifetimePoints,
+      tier: LoyaltyMapper.toGrpcTier(profile.tier),
+    };
   }
 
-  async getTransactionHistory(
+  async getTransactionHistoryGrpc(
     userId: string,
     limit: number = 50,
     skip: number = 0,
   ) {
-    return this.prisma.pointsTransaction.findMany({
+    const history = await this.prisma.pointsTransaction.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: skip,
     });
+
+    const transactions = history.map((t) => ({
+      id: t.id,
+      type: t.type,
+      points: t.points,
+      balanceAfter: t.balanceAfter,
+      orderId: t.orderId ?? '',
+      description: t.description ?? '',
+      createdAt: t.createdAt.toISOString(),
+    }));
+
+    return { transactions };
   }
 
-  async modifyPoints(
+  async modifyPointsGrpc(
     userId: string,
     adminId: string,
     points: number,
     reason: string,
   ) {
     if (points === 0) {
-      throw new BadRequestException(
-        'Points modification value must be non-zero.',
-      );
+      throw new RpcException({
+        code: GrpcStatus.INVALID_ARGUMENT,
+        message: 'Points modification value must be non-zero.',
+      });
     }
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const profile = await tx.loyaltyProfile.findUnique({
+      const result = await this.prisma.$transaction(async (tx) => {
+        const profile = await tx.loyaltyProfile.upsert({
           where: { userId },
+          create: { userId },
+          update: {},
         });
 
-        if (!profile) {
-          throw new NotFoundException(
-            `Loyalty profile for user ${userId} not found.`,
-          );
+        if (profile.balance + points < 0) {
+          throw new RpcException({
+            code: GrpcStatus.INVALID_ARGUMENT,
+            message: 'Insufficient points for deduction.',
+          });
         }
 
-        const newBalance = profile.balance + points;
+        const lifetimeIncrement = points > 0 ? points : 0;
+        const yearIncrement = points > 0 ? points : 0;
 
-        if (newBalance < 0) {
-          throw new BadRequestException('Insufficient points for deduction.');
-        }
+        const newTier = this.calculator.resolveNewTier(
+          profile.tier,
+          profile.yearVisits,
+          profile.yearPoints + yearIncrement,
+        );
 
         const updatedProfile = await tx.loyaltyProfile.update({
           where: { userId },
           data: {
-            balance: newBalance,
-            lifetimePoints:
-              points > 0
-                ? profile.lifetimePoints + points
-                : profile.lifetimePoints,
-            yearPoints:
-              points > 0 ? profile.yearPoints + points : profile.yearPoints,
+            balance: { increment: points },
+            lifetimePoints: { increment: lifetimeIncrement },
+            yearPoints: { increment: yearIncrement },
+            tier: newTier,
+            lastActivityAt: new Date(),
+            ...(points > 0 && {
+              balanceExpiresAt: this.calculator.addYears(new Date(), 1),
+            }),
           },
         });
 
@@ -90,35 +112,58 @@ export class AdminLoyaltyService {
             ? AdminTransactionType.ADDITION
             : AdminTransactionType.DEDUCTION;
 
-        const transaction = await tx.pointsTransaction.create({
+        await tx.pointsTransaction.create({
           data: {
             userId,
             type: transactionType,
             points,
-            balanceAfter: newBalance,
+            balanceAfter: updatedProfile.balance,
             description: `[Admin: ${adminId}] Reason: ${reason}`,
           },
         });
 
-        return {
-          profile: updatedProfile,
-          transaction,
-        };
+        if (newTier !== profile.tier) {
+          const upgradePayload = {
+            userId,
+            oldTier: profile.tier,
+            newTier,
+          };
+
+          await tx.outboxEvent.create({
+            data: {
+              type: OutboxEventType.TIER_UPGRADED,
+              payload: upgradePayload,
+              aggregateType: AggregateType.LOYALTY_PROFILE,
+              aggregateId: userId,
+            },
+          });
+
+          this.logger.log(
+            `[${userId}] Tier upgraded by admin: ${profile.tier} → ${newTier}. Event saved to Outbox.`,
+          );
+        }
+
+        return updatedProfile;
       });
+
+      return {
+        userId: result.userId,
+        tier: LoyaltyMapper.toGrpcTier(result.tier),
+        balance: result.balance,
+        success: true,
+      };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
+      if (error instanceof RpcException) {
         throw error;
       }
 
       this.logger.error(
         `Failed to modify points for user ${userId} by admin ${adminId}: ${error}`,
       );
-      throw new InternalServerErrorException(
-        'An error occurred while modifying points.',
-      );
+      throw new RpcException({
+        code: GrpcStatus.INTERNAL,
+        message: 'An error occurred while modifying points.',
+      });
     }
   }
 }

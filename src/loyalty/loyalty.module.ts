@@ -1,11 +1,10 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ClientsModule } from '@nestjs/microservices';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LoyaltyService } from './loyalty.service';
 import { LoyaltyController } from './loyalty.controller';
-import { LoyaltyRestController } from './loyalty.rest.controller';
 import { TicketPurchasedConsumer } from './consumers/ticket-purchased.consumer';
 import { TierUpgradeListener } from './notifications/tier-upgrade.listener';
 import { BullModule } from '@nestjs/bullmq';
@@ -22,6 +21,7 @@ import { LoyaltyCalculatorService } from './loyalty-calculator.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { OutboxPublisherService } from './outbox-publisher.service';
 import { AchievementsModule } from 'src/achievements/achievements.module';
+import { AdminLoyaltyModule } from 'src/admin-loyalty/admin-loyalty.module';
 
 @Module({
   imports: [
@@ -30,6 +30,7 @@ import { AchievementsModule } from 'src/achievements/achievements.module';
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
     AchievementsModule,
+    forwardRef(() => AdminLoyaltyModule),
     // BULL MQ
     BullModule.forRootAsync({
       imports: [ConfigModule],
@@ -49,11 +50,7 @@ import { AchievementsModule } from 'src/achievements/achievements.module';
       },
     ]),
   ],
-  controllers: [
-    LoyaltyController,
-    LoyaltyRestController,
-    TicketPurchasedConsumer,
-  ],
+  controllers: [LoyaltyController, TicketPurchasedConsumer],
   providers: [
     LoyaltyService,
     LoyaltyExpirationService,
@@ -63,5 +60,6 @@ import { AchievementsModule } from 'src/achievements/achievements.module';
     LoyaltyCalculatorService,
     OutboxPublisherService,
   ],
+  exports: [LoyaltyService, LoyaltyCalculatorService],
 })
 export class LoyaltyModule {}

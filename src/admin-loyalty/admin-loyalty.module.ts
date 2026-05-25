@@ -1,12 +1,12 @@
-import { Module } from '@nestjs/common';
-import { AdminLoyaltyController } from './admin-loyalty.controller';
+import { forwardRef, Module } from '@nestjs/common';
 import { AdminLoyaltyService } from './admin-loyalty.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { AuthModule } from '../auth/auth.module';
+import { LoyaltyModule } from 'src/loyalty/loyalty.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
-  controllers: [AdminLoyaltyController],
+  imports: [PrismaModule, forwardRef(() => LoyaltyModule)],
+  controllers: [],
   providers: [AdminLoyaltyService],
+  exports: [AdminLoyaltyService],
 })
 export class AdminLoyaltyModule {}

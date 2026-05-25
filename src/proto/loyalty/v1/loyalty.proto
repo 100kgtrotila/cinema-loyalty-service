@@ -34,6 +34,9 @@ service LoyaltyService {
   rpc RefundPoints(RefundPointsRequest) returns (RefundPointsResponse);
   rpc CalculateDiscount(CalculateDiscountRequest) returns (CalculateDiscountResponse);
   rpc RollbackGoldUpgrade(RollbackGoldUpgradeRequest) returns (RollbackGoldUpgradeResponse);
+  rpc GetAdminUserBalance(GetAdminUserBalanceRequest) returns (GetAdminUserBalanceResponse);
+  rpc GetAdminTransactionHistory(GetAdminTransactionHistoryRequest) returns (GetAdminTransactionHistoryResponse);
+  rpc ModifyUserPoints(ModifyUserPointsRequest) returns (ModifyUserPointsResponse);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -147,4 +150,52 @@ message RollbackGoldUpgradeRequest {
 message RollbackGoldUpgradeResponse {
   bool success = 1;
   string error_message = 2;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin
+// ─────────────────────────────────────────────────────────────────────────────
+
+message GetAdminUserBalanceRequest {
+  string user_id = 1;
+}
+
+message GetAdminUserBalanceResponse {
+  string tier = 1;
+  int32 balance = 2;
+  int32 lifetime_points = 3;
+}
+
+message GetAdminTransactionHistoryRequest {
+  string user_id = 1;
+  int32 limit = 2;
+  int32 skip = 3;
+}
+
+message AdminTransactionMessage {
+  string id = 1;
+  string type = 2;
+  int32 points = 3;
+  int32 balance_after = 4;
+  string order_id = 5;
+  string description = 6;
+  string created_at = 7;
+}
+
+message GetAdminTransactionHistoryResponse {
+  repeated AdminTransactionMessage transactions = 1;
+}
+
+message ModifyUserPointsRequest {
+  string user_id = 1;
+  string admin_id = 2;
+  int32 points = 3;
+  string reason = 4;
+}
+
+message ModifyUserPointsResponse {
+  string user_id = 1;
+  string tier = 2;
+  int32 balance = 3;
+  bool success = 4;
 }

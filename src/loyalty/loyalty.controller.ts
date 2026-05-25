@@ -1,6 +1,9 @@
-import { Controller, UseGuards } from '@nestjs/common';
+import { Controller, forwardRef, Inject, UseGuards } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { LoyaltyService } from './loyalty.service';
+import { LoyaltyExpirationService } from './loyalty-expiration.service';
+import { AdminLoyaltyService } from 'src/admin-loyalty/admin-loyalty.service';
+import { GrpcApiKeyGuard } from 'src/guards/grpc-api-key.guard';
 import type {
   CalculateDiscountRequest,
   DeductPointsRequest,
@@ -10,8 +13,6 @@ import type {
   RollbackGoldUpgradeRequest,
   UseGoldUpgradeRequest,
 } from './interfaces/loyalty-request.interface';
-import { GrpcApiKeyGuard } from 'src/guards/grpc-api-key.guard';
-import { LoyaltyExpirationService } from './loyalty-expiration.service';
 import { RollbackGoldUpgradeResponse } from './interfaces/loyalty-response.interface';
 
 @Controller()
@@ -20,6 +21,9 @@ export class LoyaltyController {
   constructor(
     private readonly loyaltyService: LoyaltyService,
     private readonly loyaltyExpiration: LoyaltyExpirationService,
+
+    @Inject(forwardRef(() => AdminLoyaltyService))
+    private readonly adminLoyaltyService: AdminLoyaltyService,
   ) {}
 
   @GrpcMethod('LoyaltyService', 'GetBalance')
@@ -67,5 +71,38 @@ export class LoyaltyController {
     data: RollbackGoldUpgradeRequest,
   ): Promise<RollbackGoldUpgradeResponse> {
     return this.loyaltyService.rollbackGoldUpgrade(data.userId, data.orderId);
+  }
+
+  @GrpcMethod('LoyaltyService', 'GetAdminUserBalance')
+  async getAdminUserBalance(data: { userId: string }) {
+    return this.adminLoyaltyService.getUserBalanceGrpc(data.userId);
+  }
+
+  @GrpcMethod('LoyaltyService', 'GetAdminTransactionHistory')
+  async getAdminTransactionHistory(data: {
+    userId: string;
+    limit?: number;
+    skip?: number;
+  }) {
+    return this.adminLoyaltyService.getTransactionHistoryGrpc(
+      data.userId,
+      data.limit ?? 50,
+      data.skip ?? 0,
+    );
+  }
+
+  @GrpcMethod('LoyaltyService', 'ModifyUserPoints')
+  async modifyUserPoints(data: {
+    userId: string;
+    adminId: string;
+    points: number;
+    reason: string;
+  }) {
+    return this.adminLoyaltyService.modifyPointsGrpc(
+      data.userId,
+      data.adminId,
+      data.points,
+      data.reason,
+    );
   }
 }
