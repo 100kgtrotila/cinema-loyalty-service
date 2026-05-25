@@ -4,21 +4,28 @@ on:
   push:
     branches: [ master ]
 
+concurrency:
+  group: deploy-loyalty-master
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ─── ДІАГНОСТИКА ───────────────────────────────────────────────
-      - name: "[DEBUG] Show runner info"
+      - name: "[DEBUG] Show runner + commit info"
         run: |
           echo "=========================================="
-          echo "Runner IP (IPv4):"
-          curl -s https://api.ipify.org
-          echo ""
           echo "Runner OS: $(uname -a)"
+          echo "Repo: $GITHUB_REPOSITORY"
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "SHA: $GITHUB_SHA"
+          git rev-parse HEAD
+          git log -1 --oneline
           echo "=========================================="
 
       - name: "[DEBUG] Test TCP port 22"
@@ -56,12 +63,23 @@ jobs:
             -i /tmp/test_key \
             ${{ secrets.USERNAME }}@${{ secrets.HOST }} \
             "echo '✅ SSH CONNECTION SUCCESSFUL'" \
-            2>&1 | head -50
+            2>&1 | head -80
           rm -f /tmp/test_key
           echo "=========================================="
 
-      # ─── ДЕПЛОЙ ────────────────────────────────────────────────────
-      - name: Copy files via SSH
+      - name: Clean remote loyalty workspace (remove stale files)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -euo pipefail
+            echo "Cleaning /root/cinema-platform/loyalty ..."
+            rm -rf /root/cinema-platform/loyalty
+            mkdir -p /root/cinema-platform/loyalty
+
+      - name: Copy files via SSH (fresh sync)
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.HOST }}
@@ -77,6 +95,20 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            set -euo pipefail
+
             cd /root/cinema-platform
-            docker compose up -d --build loyalty-service # <--- Контейнер NestJS
+
+            echo "=========================================="
+            echo "[Server] Verifying deployed files..."
+            ls -la loyalty | head -50
+            echo "------------------------------------------"
+            echo "[Server] Check for stale admin-loyalty folder (should be absent if you removed it in repo):"
+            test -d loyalty/src/admin-loyalty && echo "⚠️  STILL PRESENT: loyalty/src/admin-loyalty" || echo "✅ OK: no loyalty/src/admin-loyalty"
+            echo "=========================================="
+
+            echo "[Server] Building & starting loyalty-service via docker compose..."
+            docker compose up -d --build loyalty-service
+
+            echo "[Server] Pruning unused images..."
             docker image prune -f

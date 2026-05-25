@@ -1,4 +1,4 @@
-import { Controller } from '@nestjs/common';
+import { Controller, UseGuards } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { AdminAchievementsService } from './admin-achievements.service';
 import { AchievementsService } from './achievements.service';
@@ -9,8 +9,10 @@ import type {
   GetAdminAchievementsRequest,
   GetUserAchievementsRequest,
 } from './interfaces/achievements-request.interface';
+import { GrpcApiKeyGuard } from 'src/guards/grpc-api-key.guard';
 
 @Controller()
+@UseGuards(GrpcApiKeyGuard)
 export class AchievementsController {
   constructor(
     private readonly adminService: AdminAchievementsService,
