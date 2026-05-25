@@ -156,7 +156,7 @@ export type ProcessedEventWhereInput = {
   AND?: Prisma.ProcessedEventWhereInput | Prisma.ProcessedEventWhereInput[]
   OR?: Prisma.ProcessedEventWhereInput[]
   NOT?: Prisma.ProcessedEventWhereInput | Prisma.ProcessedEventWhereInput[]
-  eventId?: Prisma.UuidFilter<"ProcessedEvent"> | string
+  eventId?: Prisma.StringFilter<"ProcessedEvent"> | string
   processedAt?: Prisma.DateTimeFilter<"ProcessedEvent"> | Date | string
 }
 
@@ -185,7 +185,7 @@ export type ProcessedEventScalarWhereWithAggregatesInput = {
   AND?: Prisma.ProcessedEventScalarWhereWithAggregatesInput | Prisma.ProcessedEventScalarWhereWithAggregatesInput[]
   OR?: Prisma.ProcessedEventScalarWhereWithAggregatesInput[]
   NOT?: Prisma.ProcessedEventScalarWhereWithAggregatesInput | Prisma.ProcessedEventScalarWhereWithAggregatesInput[]
-  eventId?: Prisma.UuidWithAggregatesFilter<"ProcessedEvent"> | string
+  eventId?: Prisma.StringWithAggregatesFilter<"ProcessedEvent"> | string
   processedAt?: Prisma.DateTimeWithAggregatesFilter<"ProcessedEvent"> | Date | string
 }
 

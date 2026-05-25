@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AdminTransactionType } from './constants/admin-loyalty.constants';
+import { AdminTransactionType } from '../loyalty/constants/admin-loyalty.constants';
 import { LoyaltyCalculatorService } from '../loyalty/loyalty-calculator.service';
 import { OutboxEventType, AggregateType } from '../loyalty/enums/loyalty.enums';
 import { RpcException } from '@nestjs/microservices';

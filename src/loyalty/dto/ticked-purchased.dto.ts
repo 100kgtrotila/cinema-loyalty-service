@@ -5,6 +5,7 @@ import {
   IsUUID,
   Min,
   IsOptional,
+  IsString,
 } from 'class-validator';
 import { EventType } from '../enums/event-type.enum';
 
@@ -40,4 +41,12 @@ export class TicketPurchasedDto {
   @IsNumber()
   @Min(0)
   paidAmount?: number;
+
+  @IsOptional()
+  @IsString()
+  seatClass?: string;
+
+  @IsOptional()
+  @IsNumber()
+  ticketCount?: number;
 }

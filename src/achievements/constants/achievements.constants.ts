@@ -1,2 +1,3 @@
 export const ACHIEVEMENTS_QUEUE = 'achievements-queue';
-export const ACHIEVEMENT_JOB_NAME = 'process-action';
+
+export const ACHIVEMENT_QUEUE_NAME = 'process-achievement';

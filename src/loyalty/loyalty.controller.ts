@@ -2,7 +2,6 @@ import { Controller, forwardRef, Inject, UseGuards } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { LoyaltyService } from './loyalty.service';
 import { LoyaltyExpirationService } from './loyalty-expiration.service';
-import { AdminLoyaltyService } from 'src/admin-loyalty/admin-loyalty.service';
 import { GrpcApiKeyGuard } from 'src/guards/grpc-api-key.guard';
 import type {
   CalculateDiscountRequest,
@@ -14,6 +13,7 @@ import type {
   UseGoldUpgradeRequest,
 } from './interfaces/loyalty-request.interface';
 import { RollbackGoldUpgradeResponse } from './interfaces/loyalty-response.interface';
+import { AdminLoyaltyService } from './admin-loyalty.service';
 
 @Controller()
 @UseGuards(GrpcApiKeyGuard)

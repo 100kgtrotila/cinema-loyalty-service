@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ClientsModule } from '@nestjs/microservices';
@@ -21,7 +21,7 @@ import { LoyaltyCalculatorService } from './loyalty-calculator.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { OutboxPublisherService } from './outbox-publisher.service';
 import { AchievementsModule } from 'src/achievements/achievements.module';
-import { AdminLoyaltyModule } from 'src/admin-loyalty/admin-loyalty.module';
+import { AdminLoyaltyService } from './admin-loyalty.service';
 
 @Module({
   imports: [
@@ -30,7 +30,6 @@ import { AdminLoyaltyModule } from 'src/admin-loyalty/admin-loyalty.module';
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
     AchievementsModule,
-    forwardRef(() => AdminLoyaltyModule),
     // BULL MQ
     BullModule.forRootAsync({
       imports: [ConfigModule],
@@ -59,6 +58,7 @@ import { AdminLoyaltyModule } from 'src/admin-loyalty/admin-loyalty.module';
     TierUpgradeListener,
     LoyaltyCalculatorService,
     OutboxPublisherService,
+    AdminLoyaltyService,
   ],
   exports: [LoyaltyService, LoyaltyCalculatorService],
 })

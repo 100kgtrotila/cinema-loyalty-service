@@ -42,7 +42,7 @@ model LoyaltyProfile {
 }
 
 model ProcessedEvent {
-  eventId     String   @id @map("event_id") @db.Uuid
+  eventId     String   @id @map("event_id") @db.VarChar(128)
   processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz()
 
   @@map("processed_events")

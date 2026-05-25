@@ -72,6 +72,7 @@ service AchievementsService {
   // Admin (CRUD-ish)
   rpc CreateAchievement(CreateAchievementRequest) returns (CreateAchievementResponse);
   rpc UpdateAchievement(UpdateAchievementRequest) returns (UpdateAchievementResponse);
+  rpc DeleteAchievement(DeleteAchievementRequest) returns (DeleteAchievementResponse);
   rpc GetAdminAchievements(GetAdminAchievementsRequest) returns (GetAdminAchievementsResponse);
 
   // Client (user-facing)
@@ -379,4 +380,12 @@ message GetUserAchievementsRequest {
 
 message GetUserAchievementsResponse {
   repeated UserAchievementDto achievements = 1;
+}
+
+message DeleteAchievementRequest {
+  string id = 1;
+}
+
+message DeleteAchievementResponse {
+  AchievementDto achievement = 1;
 }

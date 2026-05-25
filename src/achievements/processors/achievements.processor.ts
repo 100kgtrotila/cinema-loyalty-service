@@ -2,19 +2,13 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Achievement } from 'src/generated/prisma/client';
+import { Achievement, Prisma } from 'src/generated/prisma/client';
 import { PointsTransactionType } from 'src/loyalty/events/points-transaction-type.enum';
-import { AchievementCriteria } from '../interfaces/achievement-creteria.interface';
 import { ActionEvent } from '../interfaces/action-event.interface';
-import { z } from 'zod';
+import { ACHIVEMENT_QUEUE_NAME } from '../constants/achievements.constants';
+import { ActionEventSchema, CriteriaSchema } from '../schemas/events.schemas';
 
-const ActionEventSchema = z.object({
-  eventId: z.string().uuid(),
-  userId: z.string().uuid(),
-  actionType: z.string(),
-});
-
-@Processor('achievements-queue')
+@Processor(ACHIVEMENT_QUEUE_NAME)
 export class AchievementsProcessor extends WorkerHost {
   private readonly logger = new Logger(AchievementsProcessor.name);
 
@@ -41,10 +35,19 @@ export class AchievementsProcessor extends WorkerHost {
       },
     });
 
+    this.logger.debug(
+      `Found ${matchingAchievements.length} achievements for action ${actionType}`,
+    );
+
     for (const achievement of matchingAchievements) {
       try {
-        await this.processAchievement(eventId, userId, achievement);
-      } catch (error) {
+        await this.processAchievement(
+          eventId,
+          userId,
+          achievement,
+          parsed.data,
+        );
+      } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.error(
           `Failed to process achievement ${achievement.code} for user ${userId}: ${message}`,
@@ -57,55 +60,67 @@ export class AchievementsProcessor extends WorkerHost {
     eventId: string,
     userId: string,
     achievement: Achievement,
+    event: ActionEvent,
   ): Promise<void> {
-    const criteria = achievement.criteria as unknown as AchievementCriteria;
-    const targetCount = criteria.target || 1;
+    const criteriaResult = CriteriaSchema.safeParse(achievement.criteria);
+    if (!criteriaResult.success) {
+      this.logger.warn(
+        `Achievement ${achievement.code} has invalid criteria: ${criteriaResult.error.message}`,
+      );
+      return;
+    }
+
+    const { target: targetCount, operator, field } = criteriaResult.data;
+
+    let incrementBy = 1;
+    if (operator === 'sum') {
+      const raw = event.metadata?.[field];
+      const value = typeof raw === 'number' ? raw : Number(raw ?? 0);
+      if (value <= 0) return;
+      incrementBy = Math.round(value);
+    }
+
+    const uniqueProcessId = `${eventId}_${achievement.id}`;
+
+    try {
+      await this.prisma.processedEvent.create({
+        data: { eventId: uniqueProcessId },
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        this.logger.warn(
+          `Event ${uniqueProcessId} already processed. Skipping.`,
+        );
+        return;
+      }
+      throw error;
+    }
 
     await this.prisma.$transaction(async (tx) => {
-      const uniqueProcessId = `${eventId}_${achievement.id}`;
-
-      try {
-        await tx.processedEvent.create({
-          data: { eventId: uniqueProcessId },
-        });
-      } catch (error: any) {
-        if (error === 'P2002') {
-          this.logger.warn(
-            `Event ${uniqueProcessId} already processed. Skipping.`,
-          );
-          return;
-        }
-        throw error;
-      }
-
       const updatedUserAch = await tx.userAchievement.upsert({
         where: {
           userId_achievementId: { userId, achievementId: achievement.id },
         },
-        update: {
-          current: { increment: 1 },
-        },
+        update: { current: { increment: incrementBy } },
         create: {
           userId,
           achievementId: achievement.id,
           target: targetCount,
-          current: 1,
+          current: incrementBy,
         },
       });
 
-      if (updatedUserAch.current - 1 >= updatedUserAch.target) {
-        return;
-      }
+      if (updatedUserAch.current - incrementBy >= updatedUserAch.target) return;
 
       const isNowUnlocked = updatedUserAch.current >= updatedUserAch.target;
 
       if (isNowUnlocked) {
         await tx.userAchievement.update({
           where: { id: updatedUserAch.id },
-          data: {
-            isUnlocked: true,
-            unlockedAt: new Date(),
-          },
+          data: { isUnlocked: true, unlockedAt: new Date() },
         });
 
         if (achievement.rewardPoints > 0) {
@@ -128,7 +143,7 @@ export class AchievementsProcessor extends WorkerHost {
           });
 
           this.logger.log(
-            `User ${userId} unlocked achievement ${achievement.code} and received ${achievement.rewardPoints} points!`,
+            `User ${userId} unlocked achievement "${achievement.code}" (+${achievement.rewardPoints} pts)`,
           );
         }
       }

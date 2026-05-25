@@ -312,11 +312,30 @@ export class LoyaltyService {
           );
         }
       });
-      await this.achievementsService.dispatchEvent(
-        msg.eventId,
-        msg.userId,
-        AchievementAction.TICKET_PURCHASED,
-      );
+      await this.achievementsService.dispatchEvent({
+        eventId: msg.eventId,
+        userId: msg.userId,
+        actionType: AchievementAction.TICKET_PURCHASED,
+      });
+      await this.achievementsService.dispatchEvent({
+        eventId: msg.orderId,
+        userId: msg.userId,
+        actionType: AchievementAction.TICKET_PURCHASED,
+        metadata: {
+          amount: msg.totalAmount,
+          eventType: msg.eventType,
+          seatClass: msg.seatClass,
+        },
+      });
+
+      if (msg.seatClass === 'VIP') {
+        await this.achievementsService.dispatchEvent({
+          eventId: `${msg.orderId}_vip`,
+          userId: msg.userId,
+          actionType: AchievementAction.VIP_SEAT_BOUGHT,
+          metadata: { amount: msg.totalAmount },
+        });
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
