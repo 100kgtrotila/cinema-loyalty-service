@@ -34,8 +34,10 @@ export class LoyaltyService {
   ) {}
 
   async getBalance(userId: string): Promise<GetBalanceResponse> {
-    const profile = await this.prisma.loyaltyProfile.findUnique({
+    const profile = await this.prisma.loyaltyProfile.upsert({
       where: { userId },
+      create: { userId },
+      update: {},
       select: {
         balance: true,
         lifetimePoints: true,
@@ -43,13 +45,6 @@ export class LoyaltyService {
         tier: true,
       },
     });
-
-    if (!profile) {
-      throw new RpcException({
-        code: GrpcStatus.NOT_FOUND,
-        message: `${ERROR_MESSAGES.PROFILE_NOT_FOUND} ${userId}`,
-      });
-    }
 
     return {
       balance: profile.balance,
@@ -60,16 +55,11 @@ export class LoyaltyService {
   }
 
   async getFullProfile(userId: string): Promise<GetFullProfileResponse> {
-    const profile = await this.prisma.loyaltyProfile.findUnique({
+    const profile = await this.prisma.loyaltyProfile.upsert({
       where: { userId },
+      create: { userId },
+      update: {},
     });
-
-    if (!profile) {
-      throw new RpcException({
-        code: GrpcStatus.NOT_FOUND,
-        message: `${ERROR_MESSAGES.PROFILE_NOT_FOUND} ${userId}`,
-      });
-    }
 
     return {
       userId: profile.userId,
