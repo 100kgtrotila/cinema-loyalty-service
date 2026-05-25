@@ -22,6 +22,33 @@ enum EventType {
   EVENT_TYPE_PREMIERE = 3;
 }
 
+enum AchievementCategory {
+  ACHIEVEMENT_CATEGORY_UNSPECIFIED = 0;
+  ACHIEVEMENT_CATEGORY_VISITS = 1;
+  ACHIEVEMENT_CATEGORY_SPENDING = 2;
+  ACHIEVEMENT_CATEGORY_TIER = 3;
+  ACHIEVEMENT_CATEGORY_TIME = 4;
+  ACHIEVEMENT_CATEGORY_SPECIAL = 5;
+  ACHIEVEMENT_CATEGORY_STREAK = 6;
+  ACHIEVEMENT_CATEGORY_SECRET = 7;
+}
+
+enum AchievementRarity {
+  ACHIEVEMENT_RARITY_UNSPECIFIED = 0;
+  ACHIEVEMENT_RARITY_COMMON = 1;
+  ACHIEVEMENT_RARITY_UNCOMMON = 2;
+  ACHIEVEMENT_RARITY_RARE = 3;
+  ACHIEVEMENT_RARITY_EPIC = 4;
+  ACHIEVEMENT_RARITY_LEGENDARY = 5;
+}
+
+enum AchievementStrategy {
+  ACHIEVEMENT_STRATEGY_UNSPECIFIED = 0;
+  ACHIEVEMENT_STRATEGY_INSTANT = 1;
+  ACHIEVEMENT_STRATEGY_THRESHOLD = 2;
+  ACHIEVEMENT_STRATEGY_STREAK = 3;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Service
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,6 +66,16 @@ service LoyaltyService {
   rpc ModifyUserPoints(ModifyUserPointsRequest) returns (ModifyUserPointsResponse);
   rpc GetAdminUsers(GetAdminUsersRequest) returns (GetAdminUsersResponse);
   rpc GrantVipStatus(GrantVipStatusRequest) returns (GrantVipStatusResponse);
+}
+
+service AchievementsService {
+  // Admin (CRUD-ish)
+  rpc CreateAchievement(CreateAchievementRequest) returns (CreateAchievementResponse);
+  rpc UpdateAchievement(UpdateAchievementRequest) returns (UpdateAchievementResponse);
+  rpc GetAdminAchievements(GetAdminAchievementsRequest) returns (GetAdminAchievementsResponse);
+
+  // Client (user-facing)
+  rpc GetUserAchievements(GetUserAchievementsRequest) returns (GetUserAchievementsResponse);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -231,4 +268,115 @@ message GrantVipStatusResponse {
   string user_id = 1;
   string new_tier = 2;
   bool success = 3;
+}
+
+message AchievementDto {
+  string id = 1;
+  string code = 2;
+
+  string name = 3;
+  string description = 4;
+
+  string secret_hint = 5;
+  bool is_secret = 6;
+
+  string icon = 7;
+  AchievementCategory category = 8;
+  AchievementRarity rarity = 9;
+  AchievementStrategy strategy = 10;
+
+  string criteria_json = 11;
+
+  int32 reward_points = 12;
+  int32 sort_order = 13;
+
+  bool is_active = 14;
+
+  string created_at = 15;
+  string updated_at = 16;
+}
+
+message CreateAchievementRequest {
+  string code = 1;
+
+  string name = 2;
+  string description = 3;
+
+  string secret_hint = 4;
+  bool is_secret = 5;
+
+  string icon = 6;
+  AchievementCategory category = 7;
+  AchievementRarity rarity = 8;
+  AchievementStrategy strategy = 9;
+
+  string criteria_json = 10;
+
+  int32 reward_points = 11;
+  int32 sort_order = 12;
+
+  bool is_active = 13;
+}
+
+message CreateAchievementResponse {
+  AchievementDto achievement = 1;
+}
+
+message UpdateAchievementRequest {
+  string id = 1;
+
+  string code = 2;
+
+  string name = 3;
+  string description = 4;
+
+  string secret_hint = 5;
+  bool is_secret = 6;
+
+  string icon = 7;
+  AchievementCategory category = 8;
+  AchievementRarity rarity = 9;
+  AchievementStrategy strategy = 10;
+
+  string criteria_json = 11;
+
+  int32 reward_points = 12;
+  int32 sort_order = 13;
+
+  bool is_active = 14;
+}
+
+message UpdateAchievementResponse {
+  AchievementDto achievement = 1;
+}
+
+message GetAdminAchievementsRequest {
+  bool include_inactive = 1;
+
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message GetAdminAchievementsResponse {
+  repeated AchievementDto achievements = 1;
+  int32 total = 2;
+}
+
+message UserAchievementDto {
+  AchievementDto achievement = 1;
+
+  int32 current = 2;
+  int32 target = 3;
+
+  bool is_unlocked = 4;
+  string unlocked_at = 5;
+}
+
+message GetUserAchievementsRequest {
+  string user_id = 1;
+  bool include_locked = 2;
+}
+
+message GetUserAchievementsResponse {
+  repeated UserAchievementDto achievements = 1;
 }
