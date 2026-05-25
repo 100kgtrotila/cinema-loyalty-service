@@ -1,8 +1,7 @@
-import { Controller, UseGuards } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
-import { GrpcApiKeyGuard } from 'src/guards/grpc-api-key.guard';
-import { AchievementsService } from './achievements.service';
 import { AdminAchievementsService } from './admin-achievements.service';
+import { AchievementsService } from './achievements.service';
 import type {
   CreateAchievementRequest,
   UpdateAchievementRequest,
@@ -12,35 +11,34 @@ import type {
 } from './interfaces/achievements-request.interface';
 
 @Controller()
-@UseGuards(GrpcApiKeyGuard)
 export class AchievementsController {
   constructor(
-    private readonly achievementsService: AchievementsService,
-    private readonly adminAchievementsService: AdminAchievementsService,
+    private readonly adminService: AdminAchievementsService,
+    private readonly userService: AchievementsService,
   ) {}
 
   @GrpcMethod('AchievementsService', 'CreateAchievement')
-  createAchievement(data: CreateAchievementRequest) {
-    return this.adminAchievementsService.createAchievementGrpc(data);
+  async createAchievement(data: CreateAchievementRequest) {
+    return this.adminService.createAchievementGrpc(data);
   }
 
   @GrpcMethod('AchievementsService', 'UpdateAchievement')
-  updateAchievement(data: UpdateAchievementRequest) {
-    return this.adminAchievementsService.updateAchievementGrpc(data);
+  async updateAchievement(data: UpdateAchievementRequest) {
+    return this.adminService.updateAchievementGrpc(data);
   }
 
   @GrpcMethod('AchievementsService', 'DeleteAchievement')
-  deleteAchievement(data: DeleteAchievementRequest) {
-    return this.adminAchievementsService.deleteAchievementGrpc(data);
+  async deleteAchievement(data: DeleteAchievementRequest) {
+    return this.adminService.deleteAchievementGrpc(data);
   }
 
   @GrpcMethod('AchievementsService', 'GetAdminAchievements')
-  getAdminAchievements(data: GetAdminAchievementsRequest) {
-    return this.adminAchievementsService.getAdminAchievementsGrpc(data);
+  async getAdminAchievements(data: GetAdminAchievementsRequest) {
+    return this.adminService.getAdminAchievementsGrpc(data);
   }
 
   @GrpcMethod('AchievementsService', 'GetUserAchievements')
-  getUserAchievements(data: GetUserAchievementsRequest) {
-    return this.achievementsService.getUserAchievementsGrpc(data);
+  async getUserAchievements(data: GetUserAchievementsRequest) {
+    return this.userService.getUserAchievementsGrpc(data);
   }
 }
