@@ -54,6 +54,7 @@ export const ModelName = {
   LoyaltyProfile: 'LoyaltyProfile',
   ProcessedEvent: 'ProcessedEvent',
   PointsTransaction: 'PointsTransaction',
+  UserBonusGrant: 'UserBonusGrant',
   OutboxEvent: 'OutboxEvent',
   Achievement: 'Achievement',
   UserAchievement: 'UserAchievement'
@@ -116,6 +117,19 @@ export const PointsTransactionScalarFieldEnum = {
 } as const
 
 export type PointsTransactionScalarFieldEnum = (typeof PointsTransactionScalarFieldEnum)[keyof typeof PointsTransactionScalarFieldEnum]
+
+
+export const UserBonusGrantScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  grantYear: 'grantYear',
+  points: 'points',
+  pointsTransactionId: 'pointsTransactionId',
+  grantedAt: 'grantedAt'
+} as const
+
+export type UserBonusGrantScalarFieldEnum = (typeof UserBonusGrantScalarFieldEnum)[keyof typeof UserBonusGrantScalarFieldEnum]
 
 
 export const OutboxEventScalarFieldEnum = {

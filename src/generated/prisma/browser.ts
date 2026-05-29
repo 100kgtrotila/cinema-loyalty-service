@@ -33,6 +33,11 @@ export type ProcessedEvent = Prisma.ProcessedEventModel
  */
 export type PointsTransaction = Prisma.PointsTransactionModel
 /**
+ * Model UserBonusGrant
+ * 
+ */
+export type UserBonusGrant = Prisma.UserBonusGrantModel
+/**
  * Model OutboxEvent
  * 
  */

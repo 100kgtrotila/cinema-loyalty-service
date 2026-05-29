@@ -387,6 +387,7 @@ export const ModelName = {
   LoyaltyProfile: 'LoyaltyProfile',
   ProcessedEvent: 'ProcessedEvent',
   PointsTransaction: 'PointsTransaction',
+  UserBonusGrant: 'UserBonusGrant',
   OutboxEvent: 'OutboxEvent',
   Achievement: 'Achievement',
   UserAchievement: 'UserAchievement'
@@ -405,7 +406,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "outboxEvent" | "achievement" | "userAchievement"
+    modelProps: "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "userBonusGrant" | "outboxEvent" | "achievement" | "userAchievement"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -628,6 +629,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.PointsTransactionCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.PointsTransactionCountAggregateOutputType> | number
+        }
+      }
+    }
+    UserBonusGrant: {
+      payload: Prisma.$UserBonusGrantPayload<ExtArgs>
+      fields: Prisma.UserBonusGrantFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.UserBonusGrantFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserBonusGrantPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.UserBonusGrantFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserBonusGrantPayload>
+        }
+        findFirst: {
+          args: Prisma.UserBonusGrantFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserBonusGrantPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.UserBonusGrantFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserBonusGrantPayload>
+        }
+        findMany: {
+          args: Prisma.UserBonusGrantFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserBonusGrantPayload>[]
+        }
+        create: {
+          args: Prisma.UserBonusGrantCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserBonusGrantPayload>
+        }
+        createMany: {
+          args: Prisma.UserBonusGrantCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.UserBonusGrantCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserBonusGrantPayload>[]
+        }
+        delete: {
+          args: Prisma.UserBonusGrantDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserBonusGrantPayload>
+        }
+        update: {
+          args: Prisma.UserBonusGrantUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserBonusGrantPayload>
+        }
+        deleteMany: {
+          args: Prisma.UserBonusGrantDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.UserBonusGrantUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.UserBonusGrantUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserBonusGrantPayload>[]
+        }
+        upsert: {
+          args: Prisma.UserBonusGrantUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserBonusGrantPayload>
+        }
+        aggregate: {
+          args: Prisma.UserBonusGrantAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUserBonusGrant>
+        }
+        groupBy: {
+          args: Prisma.UserBonusGrantGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserBonusGrantGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.UserBonusGrantCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserBonusGrantCountAggregateOutputType> | number
         }
       }
     }
@@ -933,6 +1008,19 @@ export const PointsTransactionScalarFieldEnum = {
 } as const
 
 export type PointsTransactionScalarFieldEnum = (typeof PointsTransactionScalarFieldEnum)[keyof typeof PointsTransactionScalarFieldEnum]
+
+
+export const UserBonusGrantScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  grantYear: 'grantYear',
+  points: 'points',
+  pointsTransactionId: 'pointsTransactionId',
+  grantedAt: 'grantedAt'
+} as const
+
+export type UserBonusGrantScalarFieldEnum = (typeof UserBonusGrantScalarFieldEnum)[keyof typeof UserBonusGrantScalarFieldEnum]
 
 
 export const OutboxEventScalarFieldEnum = {
@@ -1295,6 +1383,7 @@ export type GlobalOmitConfig = {
   loyaltyProfile?: Prisma.LoyaltyProfileOmit
   processedEvent?: Prisma.ProcessedEventOmit
   pointsTransaction?: Prisma.PointsTransactionOmit
+  userBonusGrant?: Prisma.UserBonusGrantOmit
   outboxEvent?: Prisma.OutboxEventOmit
   achievement?: Prisma.AchievementOmit
   userAchievement?: Prisma.UserAchievementOmit
