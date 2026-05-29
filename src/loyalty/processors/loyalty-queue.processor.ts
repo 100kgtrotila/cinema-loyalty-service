@@ -4,6 +4,7 @@ import {
   LOYALTY_QUEUE_NAME,
 } from '../constants/loyalty.constants';
 import { LoyaltyExpirationService } from '../loyalty-expiration.service';
+import { LoyaltyService } from '../loyalty.service';
 import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 
@@ -11,11 +12,14 @@ import { Logger } from '@nestjs/common';
 export class LoyaltyQueueProcessor extends WorkerHost {
   private readonly logger = new Logger(LoyaltyQueueProcessor.name);
 
-  constructor(private readonly expirationService: LoyaltyExpirationService) {
+  constructor(
+    private readonly expirationService: LoyaltyExpirationService,
+    private readonly loyaltyService: LoyaltyService,
+  ) {
     super();
   }
 
-  async process(job: Job<undefined, void, string>): Promise<void> {
+  async process(job: Job<unknown, void, string>): Promise<void> {
     this.logger.log(`Початок обробки задачі: ${job.name} (ID: ${job.id})`);
 
     switch (job.name) {
@@ -39,6 +43,12 @@ export class LoyaltyQueueProcessor extends WorkerHost {
 
       case LOYALTY_JOBS.GOLD_RESET:
         await this.expirationService.goldReset(async (total) => {
+          await job.updateProgress(total);
+        });
+        break;
+
+      case LOYALTY_JOBS.GRANT_BIRTHDAY_BONUSES:
+        await this.loyaltyService.grantBirthdayBonuses(async (total) => {
           await job.updateProgress(total);
         });
         break;

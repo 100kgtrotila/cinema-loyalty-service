@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AchievementCriteriaSchema } from '../validators/achievement-criteria.validator';
 
 export const ActionEventSchema = z.object({
   eventId: z.uuid(),
@@ -6,8 +7,4 @@ export const ActionEventSchema = z.object({
   actionType: z.string(),
 });
 
-export const CriteriaSchema = z.object({
-  field: z.string(),
-  operator: z.enum(['gte', 'sum']),
-  target: z.number(),
-});
+export const CriteriaSchema = AchievementCriteriaSchema;

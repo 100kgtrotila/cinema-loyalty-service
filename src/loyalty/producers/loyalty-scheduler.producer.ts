@@ -5,6 +5,8 @@ import {
   LOYALTY_QUEUE_NAME,
   LOYALTY_JOBS,
   CRON_SCHEDULES,
+  EVERY_DAY_00_10_CRON,
+  GRANT_BIRTHDAY_BONUSES_JOB,
 } from '../constants/loyalty.constants';
 
 @Injectable()
@@ -49,6 +51,19 @@ export class LoyaltySchedulerProducer implements OnModuleInit {
         jobId: `${LOYALTY_JOBS.GOLD_RESET}-schedule`,
       },
     );
+
+    await this.loyaltyQueue.add(
+      GRANT_BIRTHDAY_BONUSES_JOB,
+      {},
+      {
+        repeat: {
+          pattern: EVERY_DAY_00_10_CRON,
+          tz: 'UTC',
+        },
+        jobId: `${GRANT_BIRTHDAY_BONUSES_JOB}-schedule`,
+      },
+    );
+
     await this.loyaltyQueue.add(LOYALTY_JOBS.NOTIFY_EXPIRING, {});
   }
 }
