@@ -28,12 +28,19 @@ Microservice responsible for managing the **Loyalty Program** and **Achievements
 ## ✨ Features
 
 ### 🏆 Loyalty Program
+
 - **Tiers**: `BRONZE`, `SILVER`, `GOLD`.
 - **Points Economy**: Users earn points from purchases and can spend them for ticket discounts.
 - **Gold Seat Upgrades**: VIP feature allowing Gold-tier members to upgrade standard seats to VIP.
 - **Expiration**: Points and Tiers expire based on specific business rules (processed via cron jobs).
+- **Birthday Bonus**: DOB updates are stored on the loyalty profile. If the DOB event arrives on the user's birthday, the service grants a birthday bonus immediately. A daily UTC job also grants birthday bonuses for users whose birthday is today. The DB enforces one birthday bonus per user per UTC calendar year.
+
+### Date-only Time Rule
+
+All date-only loyalty comparisons, including birthday checks, use UTC LocalDate semantics. The service compares only UTC year/month/day fields, so birthday grants do not depend on the host machine timezone.
 
 ### 🥇 Achievements System
+
 - Track user milestones (Visits, Spending, Time, Streak, Secret achievements).
 - Criteria-based unlocks with varying rarities (Common, Epic, Legendary).
 - Seamlessly rewards users with bonus loyalty points upon unlocking.
@@ -92,6 +99,7 @@ This project uses `buf` to manage and lint Protocol Buffers.
 ```bash
 bun run buf:build
 ```
+
 > The proto files are located in `src/proto/loyalty/v1/loyalty.proto`.
 
 ### 4. Database Initialization
@@ -139,6 +147,7 @@ src/
 The Loyalty service exposes its functionality via **gRPC**. The main backend (`cinema-platform-back`) acts as a gRPC client.
 
 ### Exposed Services (see `loyalty.proto`)
+
 - **LoyaltyService**:
   - `CalculateDiscount`, `UseGoldUpgrade`, `DeductPoints`, `RefundPoints`
   - `GetProfile`, `GetTransactions`, `ModifyPoints`, `GrantVipStatus`
