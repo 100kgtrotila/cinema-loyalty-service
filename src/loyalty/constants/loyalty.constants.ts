@@ -14,6 +14,7 @@ export const TIER_ORDER: Record<Tier, number> = {
 };
 
 export const LOYALTY_RULES = {
+  BIRTHDAY_BONUS_POINTS: 100,
   BIRTHDAY_WEEK_RADIUS_DAYS: 3,
   SPECIAL_EVENT_MULTIPLIER: 2.0,
 
@@ -39,16 +40,20 @@ export const LOYALTY_RULES = {
 
 export const LOYALTY_QUEUE_NAME = 'loyalty-queue';
 export const LOYALTY_PUBLISHER_NAME = 'LOYALTY_PUBLISHER';
+export const GRANT_BIRTHDAY_BONUSES_JOB = 'grant-birthday-bonuses';
+export const EVERY_DAY_00_10_CRON = '10 0 * * *';
 
 export const LOYALTY_JOBS = {
   EXPIRE_POINTS: 'expire-points',
   NOTIFY_EXPIRING: 'notify-expiring',
   ANNUAL_RESET: 'annual-reset',
   GOLD_RESET: 'gold-reset',
+  GRANT_BIRTHDAY_BONUSES: GRANT_BIRTHDAY_BONUSES_JOB,
 } as const;
 
 export const CRON_SCHEDULES = {
   EVERY_5_SECONDS: '*/5 * * * * *',
+  EVERY_DAY_00_10: EVERY_DAY_00_10_CRON,
   EVERY_NIGHT_03_00: '0 3 * * *',
   EVERY_NIGHT_04_00: '0 4 * * *',
   FIRST_OF_JAN_00_05: '5 0 1 1 *',

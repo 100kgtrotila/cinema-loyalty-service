@@ -8,6 +8,7 @@ import {
   TIME_CONSTANTS,
 } from './constants/loyalty.constants';
 import { LoyaltyProfileSnapshot } from './interfaces/loyalty-profile.inteface';
+import { toUtcLocalDate } from './utils/utc-local-date.util';
 
 @Injectable()
 export class LoyaltyCalculatorService {
@@ -64,12 +65,12 @@ export class LoyaltyCalculatorService {
   public isBirthdayWeek(birthdayDate: Date | null): boolean {
     if (!birthdayDate) return false;
 
-    const today = new Date();
-    const birthday = new Date(birthdayDate);
+    const today = toUtcLocalDate(new Date());
+    const birthday = toUtcLocalDate(new Date(birthdayDate));
 
     const candidates = [-1, 0, 1].map((yearOffset) => {
-      const candidate = new Date(birthday);
-      candidate.setFullYear(today.getFullYear() + yearOffset);
+      const candidate = toUtcLocalDate(birthday);
+      candidate.setUTCFullYear(today.getUTCFullYear() + yearOffset);
       return candidate;
     });
 

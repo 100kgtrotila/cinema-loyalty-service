@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Tier } from 'src/generated/prisma/enums';
+import { Prisma } from 'src/generated/prisma/client';
 import { TicketPurchasedDto } from './dto/ticked-purchased.dto';
 import EventEmitter2 from 'eventemitter2';
 import { RpcException } from '@nestjs/microservices';
@@ -20,7 +21,29 @@ import { PointsTransactionType } from './events/points-transaction-type.enum';
 import { AchievementsService } from 'src/achievements/achievements.service';
 import { AchievementAction } from 'src/achievements/enums/achievement-action.enum';
 import { OutboxEventType, AggregateType } from './enums/loyalty.enums';
-import { ERROR_MESSAGES, LOYALTY_RULES } from './constants/loyalty.constants';
+import {
+  BATCH_SIZE,
+  ERROR_MESSAGES,
+  LOYALTY_RULES,
+} from './constants/loyalty.constants';
+import { UserDateOfBirthSetEvent } from './interfaces/user-date-of-birth-set-event.interface';
+import {
+  getUtcLocalYear,
+  isFutureUtcLocalDate,
+  isSameUtcMonthDay,
+  parseUtcLocalDate,
+} from './utils/utc-local-date.util';
+
+const BIRTHDAY_BONUS_GRANT_TYPE = 'BIRTHDAY';
+
+type LoyaltyTransactionClient = Parameters<
+  Parameters<PrismaService['$transaction']>[0]
+>[0];
+
+type BirthdayGrantResult =
+  | { status: 'granted'; points: number; balanceAfter: number }
+  | { status: 'already_granted' }
+  | { status: 'profile_not_found' };
 
 @Injectable()
 export class LoyaltyService {
@@ -342,6 +365,113 @@ export class LoyaltyService {
     }
   }
 
+  async processUserDateOfBirthSet(msg: UserDateOfBirthSetEvent): Promise<void> {
+    const birthdayDate = parseUtcLocalDate(msg.dateOfBirth);
+    const now = new Date();
+
+    if (!birthdayDate || isFutureUtcLocalDate(birthdayDate, now)) {
+      this.logger.warn(
+        `[${msg.userId}] Invalid DOB received: ${msg.dateOfBirth}`,
+      );
+      return;
+    }
+
+    const grantYear = getUtcLocalYear(now);
+    const isBirthdayToday = isSameUtcMonthDay(birthdayDate, now);
+
+    try {
+      const result = await this.prisma.$transaction(async (trx) => {
+        await trx.loyaltyProfile.upsert({
+          where: { userId: msg.userId },
+          create: {
+            userId: msg.userId,
+            birthdayDate,
+          },
+          update: {
+            birthdayDate,
+          },
+        });
+
+        if (!isBirthdayToday) {
+          return { status: 'saved' as const };
+        }
+
+        return this.grantBirthdayBonusInTransaction(trx, msg.userId, now);
+      });
+
+      this.logBirthdayGrantResult(msg.userId, result, grantYear);
+    } catch (error: unknown) {
+      if (this.isUniqueConstraintError(error)) {
+        this.logger.debug(
+          `[${msg.userId}] Birthday bonus skipped: already granted for ${grantYear}`,
+        );
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  async grantBirthdayBonuses(
+    onProgress?: (processedTotal: number) => Promise<void>,
+  ): Promise<void> {
+    const now = new Date();
+    const grantYear = getUtcLocalYear(now);
+    let cursor: string | undefined;
+    let scanned = 0;
+    let candidates = 0;
+    let granted = 0;
+    let skipped = 0;
+
+    do {
+      const batch = await this.prisma.loyaltyProfile.findMany({
+        where: { birthdayDate: { not: null } },
+        select: {
+          id: true,
+          userId: true,
+          birthdayDate: true,
+        },
+        take: BATCH_SIZE,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: 'desc' },
+      });
+
+      if (batch.length === 0) break;
+
+      cursor = batch[batch.length - 1]?.id;
+      scanned += batch.length;
+
+      for (const profile of batch) {
+        if (
+          !profile.birthdayDate ||
+          !isSameUtcMonthDay(profile.birthdayDate, now)
+        ) {
+          continue;
+        }
+
+        candidates += 1;
+        const result = await this.grantBirthdayBonusForUser(
+          profile.userId,
+          now,
+        );
+
+        if (result.status === 'granted') {
+          granted += 1;
+        } else {
+          skipped += 1;
+        }
+
+        this.logBirthdayGrantResult(profile.userId, result, grantYear);
+      }
+
+      if (onProgress) await onProgress(scanned);
+    } while (cursor);
+
+    this.logger.log(
+      `[birthday-bonus] Completed. scanned=${scanned}, candidates=${candidates}, granted=${granted}, skipped=${skipped}, year=${grantYear}`,
+    );
+  }
+
   async calculateDiscount(
     userId: string,
     orderAmount: number,
@@ -433,9 +563,144 @@ export class LoyaltyService {
 
   // HELPERS
 
+  private async grantBirthdayBonusForUser(
+    userId: string,
+    now: Date,
+  ): Promise<BirthdayGrantResult> {
+    try {
+      return await this.prisma.$transaction((trx) =>
+        this.grantBirthdayBonusInTransaction(trx, userId, now),
+      );
+    } catch (error: unknown) {
+      if (this.isUniqueConstraintError(error)) {
+        return { status: 'already_granted' };
+      }
+
+      throw error;
+    }
+  }
+
+  private async grantBirthdayBonusInTransaction(
+    trx: LoyaltyTransactionClient,
+    userId: string,
+    now: Date,
+  ): Promise<BirthdayGrantResult> {
+    const grantYear = getUtcLocalYear(now);
+
+    const alreadyGranted = await trx.userBonusGrant.findUnique({
+      where: {
+        userId_type_grantYear: {
+          userId,
+          type: BIRTHDAY_BONUS_GRANT_TYPE,
+          grantYear,
+        },
+      },
+    });
+
+    if (alreadyGranted) {
+      return { status: 'already_granted' };
+    }
+
+    const profile = await trx.loyaltyProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!profile) {
+      return { status: 'profile_not_found' };
+    }
+
+    const points = LOYALTY_RULES.BIRTHDAY_BONUS_POINTS;
+    const newYearPoints = profile.yearPoints + points;
+    const newTier = this.calculator.resolveNewTier(
+      profile.tier,
+      profile.yearVisits,
+      newYearPoints,
+    );
+
+    const updatedProfile = await trx.loyaltyProfile.update({
+      where: { id: profile.id },
+      data: {
+        balance: { increment: points },
+        lifetimePoints: { increment: points },
+        yearPoints: { increment: points },
+        tier: newTier,
+        lastActivityAt: now,
+        balanceExpiresAt: this.calculator.addYears(now, 1),
+      },
+    });
+
+    const transaction = await trx.pointsTransaction.create({
+      data: {
+        userId,
+        type: PointsTransactionType.EARN_BIRTHDAY,
+        points,
+        balanceAfter: updatedProfile.balance,
+        description: `Birthday bonus for ${grantYear}`,
+      },
+    });
+
+    await trx.userBonusGrant.create({
+      data: {
+        userId,
+        type: BIRTHDAY_BONUS_GRANT_TYPE,
+        grantYear,
+        points,
+        pointsTransactionId: transaction.id,
+        grantedAt: now,
+      },
+    });
+
+    if (newTier !== profile.tier) {
+      await trx.outboxEvent.create({
+        data: {
+          type: OutboxEventType.TIER_UPGRADED,
+          payload: {
+            userId,
+            oldTier: profile.tier,
+            newTier,
+          },
+          aggregateType: AggregateType.LOYALTY_PROFILE,
+          aggregateId: userId,
+        },
+      });
+    }
+
+    return {
+      status: 'granted',
+      points,
+      balanceAfter: updatedProfile.balance,
+    };
+  }
+
+  private logBirthdayGrantResult(
+    userId: string,
+    result: BirthdayGrantResult | { status: 'saved' },
+    grantYear: number,
+  ): void {
+    if (result.status === 'granted') {
+      this.logger.log(
+        `[${userId}] Birthday bonus granted: +${result.points} pts | balance: ${result.balanceAfter} | year: ${grantYear}`,
+      );
+      return;
+    }
+
+    if (result.status === 'already_granted') {
+      this.logger.debug(
+        `[${userId}] Birthday bonus skipped: already granted for ${grantYear}`,
+      );
+      return;
+    }
+
+    if (result.status === 'profile_not_found') {
+      this.logger.warn(
+        `[${userId}] Birthday bonus skipped: loyalty profile not found`,
+      );
+    }
+  }
+
   private async findOrCreateProfile(
     userId: string,
-    trx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0],
+    trx: LoyaltyTransactionClient,
   ): Promise<LoyaltyProfileSnapshot> {
     const profile = await trx.loyaltyProfile.upsert({
       where: { userId },
@@ -459,5 +724,12 @@ export class LoyaltyService {
     const currentMonth = `${now.getFullYear()}-${month}`;
 
     return goldUpgradeUsedMonth !== currentMonth;
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 }
