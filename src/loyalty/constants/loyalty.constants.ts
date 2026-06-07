@@ -38,7 +38,8 @@ export const LOYALTY_RULES = {
   },
 };
 
-export const LOYALTY_QUEUE_NAME = 'loyalty-queue';
+export const LOYALTY_JOBS_QUEUE_NAME = 'loyalty-queue';
+export const LOYALTY_EVENTS_QUEUE_NAME = 'loyalty.events';
 export const LOYALTY_PUBLISHER_NAME = 'LOYALTY_PUBLISHER';
 export const GRANT_BIRTHDAY_BONUSES_JOB = 'grant-birthday-bonuses';
 export const EVERY_DAY_00_10_CRON = '10 0 * * *';
@@ -46,7 +47,8 @@ export const EVERY_DAY_00_10_CRON = '10 0 * * *';
 export const LOYALTY_JOBS = {
   EXPIRE_POINTS: 'expire-points',
   NOTIFY_EXPIRING: 'notify-expiring',
-  ANNUAL_RESET: 'annual-reset',
+  ANNUAL_STATS_RESET: 'annual-stats-reset',
+  LEGACY_ANNUAL_RESET: 'annual-reset',
   GOLD_RESET: 'gold-reset',
   GRANT_BIRTHDAY_BONUSES: GRANT_BIRTHDAY_BONUSES_JOB,
 } as const;
