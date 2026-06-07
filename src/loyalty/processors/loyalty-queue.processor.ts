@@ -1,14 +1,14 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import {
   LOYALTY_JOBS,
-  LOYALTY_QUEUE_NAME,
+  LOYALTY_JOBS_QUEUE_NAME,
 } from '../constants/loyalty.constants';
 import { LoyaltyExpirationService } from '../loyalty-expiration.service';
 import { LoyaltyService } from '../loyalty.service';
 import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 
-@Processor(LOYALTY_QUEUE_NAME)
+@Processor(LOYALTY_JOBS_QUEUE_NAME)
 export class LoyaltyQueueProcessor extends WorkerHost {
   private readonly logger = new Logger(LoyaltyQueueProcessor.name);
 
@@ -35,8 +35,9 @@ export class LoyaltyQueueProcessor extends WorkerHost {
         });
         break;
 
-      case LOYALTY_JOBS.ANNUAL_RESET:
-        await this.expirationService.annualReset(async (total) => {
+      case LOYALTY_JOBS.ANNUAL_STATS_RESET:
+      case LOYALTY_JOBS.LEGACY_ANNUAL_RESET:
+        await this.expirationService.resetAnnualStats(async (total) => {
           await job.updateProgress(total);
         });
         break;

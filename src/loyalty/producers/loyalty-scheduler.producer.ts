@@ -2,7 +2,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import {
-  LOYALTY_QUEUE_NAME,
+  LOYALTY_JOBS_QUEUE_NAME,
   LOYALTY_JOBS,
   CRON_SCHEDULES,
   EVERY_DAY_00_10_CRON,
@@ -12,7 +12,7 @@ import {
 @Injectable()
 export class LoyaltySchedulerProducer implements OnModuleInit {
   constructor(
-    @InjectQueue(LOYALTY_QUEUE_NAME) private readonly loyaltyQueue: Queue,
+    @InjectQueue(LOYALTY_JOBS_QUEUE_NAME) private readonly loyaltyQueue: Queue,
   ) {}
 
   async onModuleInit() {
@@ -35,11 +35,11 @@ export class LoyaltySchedulerProducer implements OnModuleInit {
     );
 
     await this.loyaltyQueue.add(
-      LOYALTY_JOBS.ANNUAL_RESET,
+      LOYALTY_JOBS.ANNUAL_STATS_RESET,
       {},
       {
         repeat: { pattern: CRON_SCHEDULES.FIRST_OF_JAN_00_05 },
-        jobId: `${LOYALTY_JOBS.ANNUAL_RESET}-schedule`,
+        jobId: `${LOYALTY_JOBS.ANNUAL_STATS_RESET}-schedule`,
       },
     );
 
