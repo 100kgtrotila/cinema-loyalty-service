@@ -18,7 +18,7 @@ Microservice responsible for managing the **Loyalty Program** and **Achievements
 - **Database**: PostgreSQL with **Prisma ORM** (`@prisma/adapter-pg`)
 - **API Protocol**: **gRPC** (Protocol Buffers via `buf`)
 - **Event Bus**: **RabbitMQ** (for listening to `TicketPurchased` events and publishing domain events)
-- **Background Jobs**: **BullMQ** & **Redis** (for outbox processing and scheduled tasks)
+- **Background Jobs**: **BullMQ** & **Redis** (for scheduled loyalty and achievement jobs)
 - **Patterns**:
   - **Transactional Outbox Pattern**: Ensures reliable message delivery to RabbitMQ by storing events in the database (`outbox_events` table) within the same transaction as business logic.
   - **Cron Jobs**: Scheduled tasks for daily expiry of points and tier recalculations.
@@ -76,6 +76,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5433/cinema_loyalty_db?sc
 # RabbitMQ
 RMQ_URL=amqp://guest:guest@localhost:5672
 RMQ_QUEUE=loyalty_ticket_purchased
+RMQ_LOYALTY_EVENTS_QUEUE=loyalty.events
 
 # Redis (BullMQ)
 REDIS_HOST=localhost
