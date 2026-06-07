@@ -6,13 +6,14 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { LoyaltyService } from './loyalty.service';
 import { LoyaltyController } from './loyalty.controller';
 import { TicketPurchasedConsumer } from './consumers/ticket-purchased.consumer';
+import { UserDateOfBirthSetConsumer } from './consumers/user-date-of-birth-set.consumer';
 import { TierUpgradeListener } from './notifications/tier-upgrade.listener';
 import { BullModule } from '@nestjs/bullmq';
 import { getBullConfig } from 'src/config/bullmq.config';
 import { getRabbitMqConfig } from 'src/config/rabbitmq.config';
 import {
   INJECTION_TOKENS,
-  LOYALTY_QUEUE_NAME,
+  LOYALTY_JOBS_QUEUE_NAME,
 } from './constants/loyalty.constants';
 import { LoyaltyExpirationService } from './loyalty-expiration.service';
 import { LoyaltySchedulerProducer } from './producers/loyalty-scheduler.producer';
@@ -37,7 +38,7 @@ import { AdminLoyaltyService } from './admin-loyalty.service';
       useFactory: getBullConfig,
     }),
     BullModule.registerQueue({
-      name: LOYALTY_QUEUE_NAME,
+      name: LOYALTY_JOBS_QUEUE_NAME,
     }),
     // RABBIT MQ
     ClientsModule.registerAsync([
@@ -49,7 +50,11 @@ import { AdminLoyaltyService } from './admin-loyalty.service';
       },
     ]),
   ],
-  controllers: [LoyaltyController, TicketPurchasedConsumer],
+  controllers: [
+    LoyaltyController,
+    TicketPurchasedConsumer,
+    UserDateOfBirthSetConsumer,
+  ],
   providers: [
     LoyaltyService,
     LoyaltyExpirationService,

@@ -1,6 +1,4 @@
-export interface AchievementCriteria {
-  field: string;
-  operator: string;
-  target: number;
-  [key: string]: unknown;
-}
+export type {
+  AchievementCriteria,
+  RawAchievementCriteria,
+} from './achievement-criteria.interface';

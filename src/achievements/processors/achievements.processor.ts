@@ -7,6 +7,7 @@ import { PointsTransactionType } from 'src/loyalty/events/points-transaction-typ
 import { ActionEvent } from '../interfaces/action-event.interface';
 import { ActionEventSchema, CriteriaSchema } from '../schemas/events.schemas';
 import { ACHIEVEMENTS_QUEUE } from '../constants/achievements.constants';
+import { calculateAchievementProgressIncrement } from '../helpers/achievement-progress.helper';
 
 @Processor(ACHIEVEMENTS_QUEUE)
 export class AchievementsProcessor extends WorkerHost {
@@ -81,15 +82,11 @@ export class AchievementsProcessor extends WorkerHost {
       return;
     }
 
-    const { target: targetCount, operator, field } = criteriaResult.data;
+    const { target: targetCount } = criteriaResult.data;
+    const { incrementBy, shouldProcess } =
+      calculateAchievementProgressIncrement(criteriaResult.data, event);
 
-    let incrementBy = 1;
-    if (operator === 'sum') {
-      const raw = event.metadata?.[field];
-      const value = typeof raw === 'number' ? raw : Number(raw ?? 0);
-      if (value <= 0) return;
-      incrementBy = Math.round(value);
-    }
+    if (!shouldProcess) return;
 
     const uniqueProcessId = `${eventId}_${achievement.id}`;
 

@@ -1,6 +1,6 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
   moduleFormat = "cjs"
 }
 
@@ -15,26 +15,26 @@ enum Tier {
 }
 
 model LoyaltyProfile {
-  id                 String    @id @default(uuid()) @db.Uuid
-  userId             String    @unique @map("user_id") @db.Uuid
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
 
-  tier               Tier      @default(BRONZE)
-  
-  balance            Int       @default(0)
-  lifetimePoints     Int       @default(0) @map("lifetime_points")
-  yearPoints         Int       @default(0) @map("year_points")
-  yearVisits         Int       @default(0) @map("year_visits")
+  tier Tier @default(BRONZE)
 
-  tierExpiresAt      DateTime? @map("tier_expires_at") @db.Timestamptz()
-  lastActivityAt     DateTime? @map("last_activity_at") @db.Timestamptz()
-  balanceExpiresAt   DateTime? @map("balance_expires_at") @db.Timestamptz()
-  birthdayDate       DateTime? @map("birthday_date") @db.Date
+  balance        Int @default(0)
+  lifetimePoints Int @default(0) @map("lifetime_points")
+  yearPoints     Int @default(0) @map("year_points")
+  yearVisits     Int @default(0) @map("year_visits")
+
+  tierExpiresAt            DateTime? @map("tier_expires_at") @db.Timestamptz()
+  lastActivityAt           DateTime? @map("last_activity_at") @db.Timestamptz()
+  balanceExpiresAt         DateTime? @map("balance_expires_at") @db.Timestamptz()
+  birthdayDate             DateTime? @map("birthday_date") @db.Date
   lastExpiryNotificationAt DateTime? @map("last_expiry_notification_at") @db.Timestamptz()
 
   goldUpgradeUsedMonth String? @map("gold_upgrade_used_month") @db.VarChar(7)
 
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
   @@index([userId])
   @@index([tier])
@@ -61,6 +61,20 @@ model PointsTransaction {
   @@index([userId])
   @@index([createdAt])
   @@map("points_transactions")
+}
+
+model UserBonusGrant {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  type                String   @db.VarChar(32)
+  grantYear           Int      @map("grant_year") @db.SmallInt
+  points              Int
+  pointsTransactionId String?  @unique @map("points_transaction_id") @db.Uuid
+  grantedAt           DateTime @default(now()) @map("granted_at") @db.Timestamptz()
+
+  @@unique([userId, type, grantYear])
+  @@index([userId])
+  @@map("user_bonus_grants")
 }
 
 enum OutboxEventStatus {
@@ -114,27 +128,27 @@ enum AchievementStrategy {
 }
 
 model Achievement {
-  id           String              @id @default(uuid()) @db.Uuid
-  code         String              @unique @db.VarChar(64)
+  id   String @id @default(uuid()) @db.Uuid
+  code String @unique @db.VarChar(64)
 
-  name         String              @db.VarChar(128)
-  description  String              @db.Text
-  secretHint   String?             @map("secret_hint") @db.Text
-  isSecret     Boolean             @default(false) @map("is_secret")
+  name        String  @db.VarChar(128)
+  description String  @db.Text
+  secretHint  String? @map("secret_hint") @db.Text
+  isSecret    Boolean @default(false) @map("is_secret")
 
-  icon         String              @db.VarChar(128)
-  category     AchievementCategory
-  rarity       AchievementRarity   @default(COMMON)
-  strategy     AchievementStrategy @default(INSTANT)
+  icon     String              @db.VarChar(128)
+  category AchievementCategory
+  rarity   AchievementRarity   @default(COMMON)
+  strategy AchievementStrategy @default(INSTANT)
 
-  criteria     Json                @db.JsonB
+  criteria Json @db.JsonB
 
-  rewardPoints Int                 @default(0) @map("reward_points")
-  sortOrder    Int                 @default(0) @map("sort_order") @db.SmallInt
-  isActive     Boolean             @default(true) @map("is_active")
+  rewardPoints Int     @default(0) @map("reward_points")
+  sortOrder    Int     @default(0) @map("sort_order") @db.SmallInt
+  isActive     Boolean @default(true) @map("is_active")
 
-  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz()
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
   userAchievements UserAchievement[]
 
@@ -143,22 +157,21 @@ model Achievement {
   @@map("achievements")
 }
 
-
 model UserAchievement {
-  id            String      @id @default(uuid()) @db.Uuid
-  userId        String      @map("user_id") @db.Uuid
-  achievementId String      @map("achievement_id") @db.Uuid
+  id            String @id @default(uuid()) @db.Uuid
+  userId        String @map("user_id") @db.Uuid
+  achievementId String @map("achievement_id") @db.Uuid
 
-  current       Int         @default(0) @db.Integer
-  target        Int         @default(1) @db.Integer
+  current Int @default(0) @db.Integer
+  target  Int @default(1) @db.Integer
 
-  isUnlocked    Boolean     @default(false) @map("is_unlocked")
-  unlockedAt    DateTime?   @map("unlocked_at") @db.Timestamptz()
+  isUnlocked Boolean   @default(false) @map("is_unlocked")
+  unlockedAt DateTime? @map("unlocked_at") @db.Timestamptz()
 
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
-  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  achievement Achievement @relation(fields: [achievementId], references: [id])
 
   @@unique([userId, achievementId])
   @@index([userId])

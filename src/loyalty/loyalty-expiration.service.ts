@@ -138,7 +138,7 @@ export class LoyaltyExpirationService {
     );
   }
 
-  async annualReset(
+  async resetAnnualStats(
     onProgress?: (processedTotal: number) => Promise<void>,
   ): Promise<void> {
     let cursor: string | undefined;
@@ -171,7 +171,7 @@ export class LoyaltyExpirationService {
     } while (cursor);
 
     this.logger.log(
-      `[annual-reset] Завершено. Скинуто статистику для ${total} юзерів.`,
+      `[annual-stats-reset] Завершено. Скинуто річну статистику для ${total} юзерів.`,
     );
   }
 
