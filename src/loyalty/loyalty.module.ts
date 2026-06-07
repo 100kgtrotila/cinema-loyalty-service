@@ -13,7 +13,7 @@ import { getBullConfig } from 'src/config/bullmq.config';
 import { getRabbitMqConfig } from 'src/config/rabbitmq.config';
 import {
   INJECTION_TOKENS,
-  LOYALTY_QUEUE_NAME,
+  LOYALTY_JOBS_QUEUE_NAME,
 } from './constants/loyalty.constants';
 import { LoyaltyExpirationService } from './loyalty-expiration.service';
 import { LoyaltySchedulerProducer } from './producers/loyalty-scheduler.producer';
@@ -38,7 +38,7 @@ import { AdminLoyaltyService } from './admin-loyalty.service';
       useFactory: getBullConfig,
     }),
     BullModule.registerQueue({
-      name: LOYALTY_QUEUE_NAME,
+      name: LOYALTY_JOBS_QUEUE_NAME,
     }),
     // RABBIT MQ
     ClientsModule.registerAsync([
