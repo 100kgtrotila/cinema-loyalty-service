@@ -38,6 +38,7 @@ export class TierUpgradeListener {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Failed to publish TierUpgradedEvent: ${msg}`);
+      throw err;
     }
   }
 }
