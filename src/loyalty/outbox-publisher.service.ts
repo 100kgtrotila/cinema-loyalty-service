@@ -42,7 +42,14 @@ export class OutboxPublisherService {
 
   private async processEvent(event: RawOutboxEvent): Promise<void> {
     try {
-      this.emitter.emit(event.type, event.payload);
+      const listenerResults = await this.emitter.emitAsync(
+        event.type,
+        event.payload,
+      );
+
+      if (listenerResults.length === 0) {
+        throw new Error(`No outbox listener registered for ${event.type}`);
+      }
 
       await this.prisma.outboxEvent.update({
         where: { id: event.id },
