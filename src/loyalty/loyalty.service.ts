@@ -253,23 +253,25 @@ export class LoyaltyService {
 
   async processTicketPurchase(msg: TicketPurchasedDto): Promise<void> {
     try {
-      await this.prisma.$transaction(async (trx) => {
+      const result = await this.prisma.$transaction(async (trx) => {
         const alreadyProcessed = await trx.processedEvent.findUnique({
           where: { eventId: msg.eventId },
         });
 
         if (alreadyProcessed) {
           this.logger.warn(`Event ${msg.eventId} already processed. Skipping.`);
-          return;
+          return { processed: false, pointsEarned: 0, pointsUsed: 0 };
         }
 
         const profile = await this.findOrCreateProfile(msg.userId, trx);
+        const pointsUsed = await this.resolvePointsUsedForOrder(msg, trx);
         const multiplier = this.calculator.resolveMultiplier(
           profile,
           msg.eventType,
         );
         const actualAmountToReward = msg.paidAmount ?? msg.totalAmount;
-        const pointsEarned = Math.floor(actualAmountToReward * multiplier);
+        const pointsEarned =
+          pointsUsed > 0 ? 0 : Math.floor(actualAmountToReward * multiplier);
 
         const newBalance = profile.balance + pointsEarned;
         const newLifetime = profile.lifetimePoints + pointsEarned;
@@ -281,38 +283,51 @@ export class LoyaltyService {
           newYearVisits,
           newYearPoints,
         );
+        const now = new Date();
 
         await trx.loyaltyProfile.update({
           where: { id: profile.id },
           data: {
-            balance: newBalance,
-            lifetimePoints: newLifetime,
-            yearPoints: newYearPoints,
             yearVisits: newYearVisits,
             tier: newTier,
-            lastActivityAt: new Date(),
-            balanceExpiresAt: this.calculator.addYears(new Date(), 1),
+            lastActivityAt: now,
+            ...(pointsEarned > 0
+              ? {
+                  balance: newBalance,
+                  lifetimePoints: newLifetime,
+                  yearPoints: newYearPoints,
+                  balanceExpiresAt: this.calculator.addYears(now, 1),
+                }
+              : {}),
           },
         });
 
-        await trx.pointsTransaction.create({
-          data: {
-            userId: msg.userId,
-            type: this.calculator.resolveTransactionType(msg.eventType),
-            points: pointsEarned,
-            balanceAfter: newBalance,
-            orderId: msg.orderId,
-            description: `Earned ${pointsEarned} pts for order ${msg.orderId} (${msg.eventType})`,
-          },
-        });
+        if (pointsEarned > 0) {
+          await trx.pointsTransaction.create({
+            data: {
+              userId: msg.userId,
+              type: this.calculator.resolveTransactionType(msg.eventType),
+              points: pointsEarned,
+              balanceAfter: newBalance,
+              orderId: msg.orderId,
+              description: `Earned ${pointsEarned} pts for order ${msg.orderId} (${msg.eventType})`,
+            },
+          });
+        }
 
         await trx.processedEvent.create({
           data: { eventId: msg.eventId },
         });
 
-        this.logger.log(
-          `[${msg.userId}] +${pointsEarned} pts | balance: ${newBalance} | tier: ${newTier}`,
-        );
+        if (pointsEarned > 0) {
+          this.logger.log(
+            `[${msg.userId}] +${pointsEarned} pts | balance: ${newBalance} | tier: ${newTier}`,
+          );
+        } else {
+          this.logger.log(
+            `[${msg.userId}] No points earned for order ${msg.orderId} because ${pointsUsed} loyalty points were used | tier: ${newTier}`,
+          );
+        }
 
         if (newTier !== profile.tier) {
           const upgradePayload = {
@@ -334,13 +349,20 @@ export class LoyaltyService {
             `[${msg.userId}] Tier upgraded: ${profile.tier} → ${newTier}. Event saved to Outbox.`,
           );
         }
+
+        return { processed: true, pointsEarned, pointsUsed };
       });
+
+      if (!result.processed) return;
+
       await this.achievementsService.dispatchEvent({
         eventId: msg.orderId,
         userId: msg.userId,
         actionType: AchievementAction.TICKET_PURCHASED,
         metadata: {
           amount: msg.totalAmount,
+          paidAmount: msg.paidAmount,
+          pointsUsed: result.pointsUsed,
           eventType: msg.eventType,
           seatClass: msg.seatClass,
         },
@@ -351,7 +373,11 @@ export class LoyaltyService {
           eventId: `${msg.orderId}_vip`,
           userId: msg.userId,
           actionType: AchievementAction.VIP_SEAT_BOUGHT,
-          metadata: { amount: msg.totalAmount },
+          metadata: {
+            amount: msg.totalAmount,
+            paidAmount: msg.paidAmount,
+            pointsUsed: result.pointsUsed,
+          },
         });
       }
     } catch (error: unknown) {
@@ -735,6 +761,28 @@ export class LoyaltyService {
     });
 
     return profile;
+  }
+
+  private async resolvePointsUsedForOrder(
+    msg: TicketPurchasedDto,
+    trx: LoyaltyTransactionClient,
+  ): Promise<number> {
+    if (msg.pointsUsed !== undefined) {
+      return Math.trunc(msg.pointsUsed);
+    }
+
+    const discountTransaction = await trx.pointsTransaction.findFirst({
+      where: {
+        userId: msg.userId,
+        orderId: msg.orderId,
+        type: PointsTransactionType.BURN_DISCOUNT,
+        points: { lt: 0 },
+      },
+      select: { points: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return Math.abs(discountTransaction?.points ?? 0);
   }
 
   private isGoldUpgradeAvailable(

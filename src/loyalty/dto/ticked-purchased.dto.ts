@@ -43,6 +43,11 @@ export class TicketPurchasedDto {
   paidAmount?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  pointsUsed?: number;
+
+  @IsOptional()
   @IsString()
   seatClass?: string;
 
