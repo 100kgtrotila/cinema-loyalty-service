@@ -4,3 +4,10 @@ export enum AchievementAction {
   REVIEW_LEFT = 'REVIEW_LEFT',
   VIP_SEAT_BOUGHT = 'VIP_SEAT_BOUGHT',
 }
+
+export const ACHIEVEMENT_ACTIONS = [
+  AchievementAction.TICKET_PURCHASED,
+  AchievementAction.BULK_TICKET_PURCHASED,
+  AchievementAction.REVIEW_LEFT,
+  AchievementAction.VIP_SEAT_BOUGHT,
+] as const;

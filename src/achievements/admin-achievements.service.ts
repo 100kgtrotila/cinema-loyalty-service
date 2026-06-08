@@ -3,7 +3,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { RpcException } from '@nestjs/microservices';
 import { GrpcStatus } from 'src/common/grpc-status';
 
-import { validateAndParseCriteriaJson } from './validators/achievement-criteria.validator';
 import {
   CreateAchievementRequest,
   UpdateAchievementRequest,
@@ -18,31 +17,9 @@ import {
 } from './interfaces/achievements-response.interface';
 import { AchievementMapper } from './mappers/achievement.mapper';
 import {
-  GrpcToCategory,
-  GrpcToRarity,
-  GrpcToStrategy,
-} from './enums/achievement-maps.enum';
-
-function mapToPrisma<T>(
-  map: Record<number, T>,
-  value: number,
-  field: string,
-): T {
-  const mapped = map[value];
-  if (!mapped) {
-    throw new RpcException({
-      code: GrpcStatus.INVALID_ARGUMENT,
-      message: `Invalid ${field}`,
-    });
-  }
-  return mapped;
-}
-
-function clampInt(v: number | undefined, min: number, max: number): number {
-  if (v === undefined || v === null) return min;
-  const n = Number.isFinite(v) ? Math.trunc(v) : min;
-  return Math.min(Math.max(n, min), max);
-}
+  normalizeAchievementInput,
+  normalizeAdminAchievementsPagination,
+} from './validators/admin-achievement-input.validator';
 
 @Injectable()
 export class AdminAchievementsService {
@@ -54,35 +31,21 @@ export class AdminAchievementsService {
   async createAchievementGrpc(
     req: CreateAchievementRequest,
   ): Promise<CreateAchievementResponse> {
+    const input = normalizeAchievementInput(req);
+
     const existing = await this.prisma.achievement.findUnique({
-      where: { code: req.code },
+      where: { code: input.code },
       select: { id: true },
     });
     if (existing) {
       throw new RpcException({
         code: GrpcStatus.ALREADY_EXISTS,
-        message: `Achievement with code '${req.code}' already exists`,
+        message: `Achievement with code '${input.code}' already exists`,
       });
     }
 
-    const criteria = validateAndParseCriteriaJson(req.criteriaJson);
-
     const created = await this.prisma.achievement.create({
-      data: {
-        code: req.code,
-        name: req.name,
-        description: req.description,
-        secretHint: req.secretHint ?? null,
-        isSecret: req.isSecret,
-        icon: req.icon,
-        category: mapToPrisma(GrpcToCategory, req.category, 'category'),
-        rarity: mapToPrisma(GrpcToRarity, req.rarity, 'rarity'),
-        strategy: mapToPrisma(GrpcToStrategy, req.strategy, 'strategy'),
-        criteria,
-        rewardPoints: req.rewardPoints ?? 0,
-        sortOrder: req.sortOrder ?? 0,
-        isActive: req.isActive,
-      },
+      data: input,
     });
 
     return { achievement: this.mapper.toGrpc(created) };
@@ -101,38 +64,24 @@ export class AdminAchievementsService {
       });
     }
 
-    if (req.code !== found.code) {
+    const input = normalizeAchievementInput(req);
+
+    if (input.code !== found.code) {
       const sameCode = await this.prisma.achievement.findUnique({
-        where: { code: req.code },
+        where: { code: input.code },
         select: { id: true },
       });
       if (sameCode) {
         throw new RpcException({
           code: GrpcStatus.ALREADY_EXISTS,
-          message: `Achievement with code '${req.code}' already exists`,
+          message: `Achievement with code '${input.code}' already exists`,
         });
       }
     }
 
-    const criteria = validateAndParseCriteriaJson(req.criteriaJson);
-
     const updated = await this.prisma.achievement.update({
       where: { id: req.id },
-      data: {
-        code: req.code,
-        name: req.name,
-        description: req.description,
-        secretHint: req.secretHint ?? null,
-        isSecret: req.isSecret,
-        icon: req.icon,
-        category: mapToPrisma(GrpcToCategory, req.category, 'category'),
-        rarity: mapToPrisma(GrpcToRarity, req.rarity, 'rarity'),
-        strategy: mapToPrisma(GrpcToStrategy, req.strategy, 'strategy'),
-        criteria,
-        rewardPoints: req.rewardPoints ?? 0,
-        sortOrder: req.sortOrder ?? 0,
-        isActive: req.isActive,
-      },
+      data: input,
     });
 
     return { achievement: this.mapper.toGrpc(updated) };
@@ -167,8 +116,7 @@ export class AdminAchievementsService {
     req: GetAdminAchievementsRequest,
   ): Promise<GetAdminAchievementsResponse> {
     const includeInactive = Boolean(req.includeInactive);
-    const limit = clampInt(req.limit, 1, 200);
-    const offset = clampInt(req.offset, 0, 1_000_000);
+    const { limit, offset } = normalizeAdminAchievementsPagination(req);
 
     const where = includeInactive ? {} : { isActive: true };
 

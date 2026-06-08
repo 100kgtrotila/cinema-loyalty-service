@@ -1,11 +1,10 @@
-import { ACHIEVEMENT_CRITERIA_OPERATOR } from '../constants/achievement-criteria.constants';
+import {
+  ACHIEVEMENT_CRITERIA_OPERATOR,
+  DEFAULT_SUM_VALUE_FIELD,
+} from '../constants/achievement-criteria.constants';
 import type { AchievementCriteria } from '../interfaces/achievement-criteria.interface';
+import type { AchievementProgressIncrement } from '../interfaces/achievement-progress.interface';
 import type { ActionEvent } from '../interfaces/action-event.interface';
-
-export interface AchievementProgressIncrement {
-  incrementBy: number;
-  shouldProcess: boolean;
-}
 
 export function calculateAchievementProgressIncrement(
   criteria: AchievementCriteria,
@@ -15,7 +14,8 @@ export function calculateAchievementProgressIncrement(
     return { incrementBy: 1, shouldProcess: true };
   }
 
-  const raw = event.metadata?.[criteria.field];
+  const valueField = criteria.valueField ?? DEFAULT_SUM_VALUE_FIELD;
+  const raw = event.metadata?.[valueField];
   const value = typeof raw === 'number' ? raw : Number(raw ?? 0);
 
   if (value <= 0) {

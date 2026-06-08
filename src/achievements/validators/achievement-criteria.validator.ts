@@ -1,29 +1,18 @@
 import { RpcException } from '@nestjs/microservices';
 import { GrpcStatus } from 'src/common/grpc-status';
-import { Prisma } from 'src/generated/prisma/client';
-import { z } from 'zod';
-import { ACHIEVEMENT_CRITERIA_OPERATORS } from '../constants/achievement-criteria.constants';
+import type { Prisma } from 'src/generated/prisma/client';
+import {
+  ACHIEVEMENT_CRITERIA_OPERATOR,
+  DEFAULT_SUM_VALUE_FIELD,
+} from '../constants/achievement-criteria.constants';
 import type {
   AchievementCriteria,
   RawAchievementCriteria,
 } from '../interfaces/achievement-criteria.interface';
-
-const AchievementCriteriaShape = {
-  field: z.string(),
-  operator: z.string(),
-  target: z.number(),
-} as const;
-
-export const RawAchievementCriteriaSchema = z.object({
-  ...AchievementCriteriaShape,
-  field: AchievementCriteriaShape.field.min(1),
-  operator: AchievementCriteriaShape.operator.min(1),
-});
-
-export const AchievementCriteriaSchema = z.object({
-  ...AchievementCriteriaShape,
-  operator: z.enum(ACHIEVEMENT_CRITERIA_OPERATORS),
-});
+import {
+  AchievementCriteriaSchema,
+  RawAchievementCriteriaSchema,
+} from '../schemas/achievement-criteria.schemas';
 
 export function parseAchievementCriteria(
   criteria: unknown,
@@ -37,7 +26,7 @@ export function parseAchievementCriteria(
     });
   }
 
-  return result.data;
+  return normalizeCriteria(result.data);
 }
 
 export function validateAndParseCriteriaJson(
@@ -63,11 +52,29 @@ export function validateAndParseCriteriaJson(
     });
   }
 
-  const criteria: RawAchievementCriteria = result.data;
+  const criteria: RawAchievementCriteria = normalizeCriteria(result.data);
 
   return {
     field: criteria.field,
     operator: criteria.operator,
     target: criteria.target,
+    ...(criteria.valueField ? { valueField: criteria.valueField } : {}),
+  };
+}
+
+function normalizeCriteria(criteria: AchievementCriteria): AchievementCriteria {
+  if (criteria.operator !== ACHIEVEMENT_CRITERIA_OPERATOR.SUM) {
+    return {
+      field: criteria.field,
+      operator: criteria.operator,
+      target: criteria.target,
+    };
+  }
+
+  return {
+    field: criteria.field,
+    operator: criteria.operator,
+    target: criteria.target,
+    valueField: criteria.valueField ?? DEFAULT_SUM_VALUE_FIELD,
   };
 }

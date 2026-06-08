@@ -1,53 +1,77 @@
-import {
+import type {
   AchievementCategory,
   AchievementRarity,
   AchievementStrategy,
 } from 'src/generated/prisma/client';
 
+const CATEGORY = {
+  VISITS: 'VISITS',
+  SPENDING: 'SPENDING',
+  TIER: 'TIER',
+  TIME: 'TIME',
+  SPECIAL: 'SPECIAL',
+  STREAK: 'STREAK',
+  SECRET: 'SECRET',
+} as const satisfies Record<AchievementCategory, AchievementCategory>;
+
+const RARITY = {
+  COMMON: 'COMMON',
+  UNCOMMON: 'UNCOMMON',
+  RARE: 'RARE',
+  EPIC: 'EPIC',
+  LEGENDARY: 'LEGENDARY',
+} as const satisfies Record<AchievementRarity, AchievementRarity>;
+
+const STRATEGY = {
+  INSTANT: 'INSTANT',
+  THRESHOLD: 'THRESHOLD',
+  STREAK: 'STREAK',
+} as const satisfies Record<AchievementStrategy, AchievementStrategy>;
+
 export const GrpcToCategory: Record<number, AchievementCategory> = {
-  1: AchievementCategory.VISITS,
-  2: AchievementCategory.SPENDING,
-  3: AchievementCategory.TIER,
-  4: AchievementCategory.TIME,
-  5: AchievementCategory.SPECIAL,
-  6: AchievementCategory.STREAK,
-  7: AchievementCategory.SECRET,
+  1: CATEGORY.VISITS,
+  2: CATEGORY.SPENDING,
+  3: CATEGORY.TIER,
+  4: CATEGORY.TIME,
+  5: CATEGORY.SPECIAL,
+  6: CATEGORY.STREAK,
+  7: CATEGORY.SECRET,
 };
 
 export const GrpcToRarity: Record<number, AchievementRarity> = {
-  1: AchievementRarity.COMMON,
-  2: AchievementRarity.UNCOMMON,
-  3: AchievementRarity.RARE,
-  4: AchievementRarity.EPIC,
-  5: AchievementRarity.LEGENDARY,
+  1: RARITY.COMMON,
+  2: RARITY.UNCOMMON,
+  3: RARITY.RARE,
+  4: RARITY.EPIC,
+  5: RARITY.LEGENDARY,
 };
 
 export const GrpcToStrategy: Record<number, AchievementStrategy> = {
-  1: AchievementStrategy.INSTANT,
-  2: AchievementStrategy.THRESHOLD,
-  3: AchievementStrategy.STREAK,
+  1: STRATEGY.INSTANT,
+  2: STRATEGY.THRESHOLD,
+  3: STRATEGY.STREAK,
 };
 
 export const CategoryToGrpc: Record<AchievementCategory, number> = {
-  [AchievementCategory.VISITS]: 1,
-  [AchievementCategory.SPENDING]: 2,
-  [AchievementCategory.TIER]: 3,
-  [AchievementCategory.TIME]: 4,
-  [AchievementCategory.SPECIAL]: 5,
-  [AchievementCategory.STREAK]: 6,
-  [AchievementCategory.SECRET]: 7,
+  [CATEGORY.VISITS]: 1,
+  [CATEGORY.SPENDING]: 2,
+  [CATEGORY.TIER]: 3,
+  [CATEGORY.TIME]: 4,
+  [CATEGORY.SPECIAL]: 5,
+  [CATEGORY.STREAK]: 6,
+  [CATEGORY.SECRET]: 7,
 };
 
 export const RarityToGrpc: Record<AchievementRarity, number> = {
-  [AchievementRarity.COMMON]: 1,
-  [AchievementRarity.UNCOMMON]: 2,
-  [AchievementRarity.RARE]: 3,
-  [AchievementRarity.EPIC]: 4,
-  [AchievementRarity.LEGENDARY]: 5,
+  [RARITY.COMMON]: 1,
+  [RARITY.UNCOMMON]: 2,
+  [RARITY.RARE]: 3,
+  [RARITY.EPIC]: 4,
+  [RARITY.LEGENDARY]: 5,
 };
 
 export const StrategyToGrpc: Record<AchievementStrategy, number> = {
-  [AchievementStrategy.INSTANT]: 1,
-  [AchievementStrategy.THRESHOLD]: 2,
-  [AchievementStrategy.STREAK]: 3,
+  [STRATEGY.INSTANT]: 1,
+  [STRATEGY.THRESHOLD]: 2,
+  [STRATEGY.STREAK]: 3,
 };

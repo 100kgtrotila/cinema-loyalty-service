@@ -8,5 +8,5 @@ export const ACHIEVEMENT_CRITERIA_OPERATORS = [
   ACHIEVEMENT_CRITERIA_OPERATOR.SUM,
 ] as const;
 
-export type AchievementCriteriaOperator =
-  (typeof ACHIEVEMENT_CRITERIA_OPERATORS)[number];
+export const DEFAULT_SUM_VALUE_FIELD = 'amount';
+export const MAX_ACHIEVEMENT_TARGET = 1_000_000_000;
