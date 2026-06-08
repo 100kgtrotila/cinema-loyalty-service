@@ -2,10 +2,24 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
+import { existsSync } from 'fs';
 import { ConfigService } from '@nestjs/config';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { AppConfig } from './interfaces/app-config.inteface';
 import { getCorsConfig } from './config/cors.config';
+
+const PROTO_RELATIVE_PATH = 'proto/loyalty/v1/loyalty.proto';
+
+function resolveProtoPath(): string {
+  const candidates = [
+    join(process.cwd(), 'src', PROTO_RELATIVE_PATH),
+    join(process.cwd(), 'dist', PROTO_RELATIVE_PATH),
+    join(__dirname, '..', PROTO_RELATIVE_PATH),
+    join(__dirname, PROTO_RELATIVE_PATH),
+  ];
+
+  return candidates.find((path) => existsSync(path)) ?? candidates[0];
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -30,7 +44,7 @@ async function bootstrap() {
     transport: Transport.GRPC,
     options: {
       package: 'loyalty.v1',
-      protoPath: join(__dirname, 'proto/loyalty/v1/loyalty.proto'),
+      protoPath: resolveProtoPath(),
       url: appConfig.grpcUrl,
     },
   });
