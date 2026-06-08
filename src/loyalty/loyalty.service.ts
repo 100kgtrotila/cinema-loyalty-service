@@ -544,21 +544,47 @@ export class LoyaltyService {
     }
   }
 
-  async getUserTransactions(userId: string) {
-    const transactions = await this.prisma.pointsTransaction.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+  async getUserTransactions(
+    userId: string,
+    limit = 20,
+    skip = 0,
+  ): Promise<{
+    transactions: Array<{
+      id: string;
+      type: string;
+      points: number;
+      balanceAfter: number;
+      orderId: string;
+      description: string;
+      createdAt: string;
+    }>;
+    totalCount: number;
+  }> {
+    const take = Math.min(Math.max(limit, 1), 100);
+    const offset = Math.max(skip, 0);
 
-    return transactions.map((t) => ({
-      id: t.id,
-      type: t.type,
-      points: t.points,
-      balanceAfter: t.balanceAfter,
-      orderId: t.orderId,
-      description: t.description,
-      createdAt: t.createdAt,
-    }));
+    const [transactions, totalCount] = await this.prisma.$transaction([
+      this.prisma.pointsTransaction.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip: offset,
+      }),
+      this.prisma.pointsTransaction.count({ where: { userId } }),
+    ]);
+
+    return {
+      transactions: transactions.map((t) => ({
+        id: t.id,
+        type: t.type,
+        points: t.points,
+        balanceAfter: t.balanceAfter,
+        orderId: t.orderId ?? '',
+        description: t.description ?? '',
+        createdAt: t.createdAt.toISOString(),
+      })),
+      totalCount,
+    };
   }
 
   // HELPERS

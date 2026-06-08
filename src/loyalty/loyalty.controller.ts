@@ -36,6 +36,15 @@ export class LoyaltyController {
     return this.loyaltyService.getFullProfile(data.userId);
   }
 
+  @GrpcMethod('LoyaltyService', 'GetTransactions')
+  getTransactions(data: { userId: string; limit?: number; skip?: number }) {
+    return this.loyaltyService.getUserTransactions(
+      data.userId,
+      data.limit ?? 20,
+      data.skip ?? 0,
+    );
+  }
+
   @GrpcMethod('LoyaltyService', 'DeductPoints')
   deductPoints(data: DeductPointsRequest) {
     return this.loyaltyService.deductPoints(
