@@ -1,175 +1,501 @@
-# 🌟 Cinema Loyalty Service
+# Cinema Loyalty Service
 
-Microservice responsible for managing the **Loyalty Program** and **Achievements** for the Cinema Platform. Built with high-performance technologies to handle gRPC communication, background job processing, and reliable event-driven architecture.
+Cinema Loyalty Service is a NestJS microservice for the Cinema Platform loyalty domain. It manages loyalty points, customer tiers, GOLD seat upgrades, birthday bonuses, achievements, gRPC integration with the main .NET backend, RabbitMQ events, and BullMQ background jobs.
 
-![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=flat&logo=nodedotjs)
-![NestJS](https://img.shields.io/badge/NestJS-11.x-E0234E?style=flat&logo=nestjs)
-![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=flat&logo=prisma)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat&logo=postgresql)
-![gRPC](https://img.shields.io/badge/gRPC-API-244C5A?style=flat&logo=google)
-![RabbitMQ](https://img.shields.io/badge/RabbitMQ-Events-FF6600?style=flat&logo=rabbitmq)
-![Redis](https://img.shields.io/badge/Redis-BullMQ-DC382D?style=flat&logo=redis)
+## Tech Stack
 
----
+- **NestJS 11** for the application layer and microservices.
+- **PostgreSQL + Prisma 7** for loyalty profiles, transactions, achievements, and outbox events.
+- **gRPC + Protocol Buffers** for synchronous integration with `cinema-platform-back`.
+- **RabbitMQ** for ticket purchase and user profile events.
+- **Redis + BullMQ** for scheduled and asynchronous background jobs.
+- **Zod** for achievement criteria and event payload validation.
+- **class-validator** for incoming RabbitMQ/gRPC DTO validation.
 
-## 🏗️ Tech Stack & Patterns
+## What The Service Does
 
-- **Framework**: [NestJS](https://nestjs.com/) v11
-- **Database**: PostgreSQL with **Prisma ORM** (`@prisma/adapter-pg`)
-- **API Protocol**: **gRPC** (Protocol Buffers via `buf`)
-- **Event Bus**: **RabbitMQ** (for listening to `TicketPurchased` events and publishing domain events)
-- **Background Jobs**: **BullMQ** & **Redis** (for scheduled loyalty and achievement jobs)
-- **Patterns**:
-  - **Transactional Outbox Pattern**: Ensures reliable message delivery to RabbitMQ by storing events in the database (`outbox_events` table) within the same transaction as business logic.
-  - **Cron Jobs**: Scheduled tasks for daily expiry of points and tier recalculations.
+### Loyalty
 
----
+- Creates a loyalty profile on the first user interaction.
+- Stores `balance`, `lifetimePoints`, `yearPoints`, `yearVisits`, and `tier`.
+- Supports `BRONZE`, `SILVER`, and `GOLD` tiers.
+- Awards points for ticket purchases when the user did not use existing points for that purchase.
+- Calculates a discount preview through the gRPC `CalculateDiscount` method.
+- Deducts points through `DeductPoints` with an idempotency key.
+- Refunds points through `RefundPoints` when the checkout/payment flow needs compensation.
+- Allows GOLD users to use one seat upgrade per month.
+- Grants a birthday bonus once per year.
+- Stores the full points history in `points_transactions`.
 
-## ✨ Features
+### Achievements
 
-### 🏆 Loyalty Program
+- Stores achievements with categories, rarity, strategy, and JSON criteria.
+- Validates achievement criteria with Zod schemas.
+- Processes achievement events asynchronously through BullMQ.
+- Updates progress in `user_achievements`.
+- Unlocks achievements and grants reward points.
+- Prevents duplicate processing with `processed_events`.
 
-- **Tiers**: `BRONZE`, `SILVER`, `GOLD`.
-- **Points Economy**: Users earn points from purchases and can spend them for ticket discounts.
-- **Gold Seat Upgrades**: VIP feature allowing Gold-tier members to upgrade standard seats to VIP.
-- **Expiration**: Points and Tiers expire based on specific business rules (processed via cron jobs).
-- **Birthday Bonus**: DOB updates are stored on the loyalty profile. If the DOB event arrives on the user's birthday, the service grants a birthday bonus immediately. A daily UTC job also grants birthday bonuses for users whose birthday is today. The DB enforces one birthday bonus per user per UTC calendar year.
+### Reliability
 
-### Date-only Time Rule
+- Events that must be published externally are stored in `outbox_events`.
+- `OutboxPublisherService` publishes pending events to RabbitMQ.
+- Balance-changing operations run inside Prisma transactions.
+- Idempotency is used for point deduction, ticket purchase events, and achievement events.
 
-All date-only loyalty comparisons, including birthday checks, use UTC LocalDate semantics. The service compares only UTC year/month/day fields, so birthday grants do not depend on the host machine timezone.
+## Business Rules
 
-### 🥇 Achievements System
+### Earning Points For Ticket Purchases
 
-- Track user milestones (Visits, Spending, Time, Streak, Secret achievements).
-- Criteria-based unlocks with varying rarities (Common, Epic, Legendary).
-- Seamlessly rewards users with bonus loyalty points upon unlocking.
+A `TicketPurchased` event may include:
 
----
+```json
+{
+  "totalAmount": 500,
+  "ticketAmount": 500,
+  "paidAmount": 200,
+  "pointsUsed": 300
+}
+```
 
-## 🚀 Getting Started
+If `pointsUsed > 0`, the service **does not award new points** for that purchase. The visit is still counted in `yearVisits`, and achievement events still receive `paidAmount` and `pointsUsed` metadata.
 
-### Prerequisites
+If `pointsUsed` is not present in the payload, the service checks `points_transactions` by `orderId` and looks for a `BURN_DISCOUNT` transaction.
 
-- [Node.js](https://nodejs.org/) (v20+)
-- [Bun](https://bun.sh/) (Package manager & script runner)
-- [Docker & Docker Compose](https://www.docker.com/) (For PostgreSQL, Redis, RabbitMQ)
-- [Buf CLI](https://buf.build/docs/installation) (For compiling `.proto` files)
+### Discount Preview
 
-### 1. Environment Setup
+The service exposes the gRPC `CalculateDiscount` method. The .NET monolith uses it so the frontend can show, before checkout:
 
-Create a `.env` file in the root directory (or use the provided defaults in `.env.example` if available):
+- how many points will be deducted;
+- how much the user will still need to pay;
+- whether loyalty point payment is available.
+
+Rules:
+
+- minimum deduction: `75` points;
+- maximum discount: `50%` of the order amount;
+- 1 point equals 1 currency unit in the discount calculation.
+
+### Birthday Bonus
+
+- The birthday date is stored as a date-only value.
+- Birthday comparisons use UTC local date semantics.
+- Bonus amount: `100` points.
+- The `user_bonus_grants` table guarantees that a birthday bonus can be granted only once per UTC year.
+
+### GOLD Upgrade
+
+- Available only for `GOLD` users.
+- Can be used once per month.
+- Usage is stored in `gold_upgrade_used_month`.
+- The `gold-reset` job clears the monthly quota at the beginning of a new month.
+
+## Integration Architecture
+
+```text
+cinema-platform-back
+  | gRPC
+  v
+cinema-loyalty-service
+  | Prisma
+  v
+PostgreSQL
+
+cinema-platform-back
+  | RabbitMQ: loyalty_ticket_purchased
+  v
+TicketPurchasedConsumer
+  -> LoyaltyService.processTicketPurchase()
+  -> AchievementsService.dispatchEvent()
+  -> BullMQ achievements-queue
+
+BullMQ loyalty-queue
+  -> expire-points
+  -> notify-expiring
+  -> annual-stats-reset
+  -> gold-reset
+  -> grant-birthday-bonuses
+```
+
+## gRPC API
+
+Proto file: `src/proto/loyalty/v1/loyalty.proto`.
+
+Main `LoyaltyService` methods:
+
+- `GetBalance`
+- `GetFullProfile`
+- `GetTransactions`
+- `CalculateDiscount`
+- `DeductPoints`
+- `RefundPoints`
+- `UseGoldUpgrade`
+- `RollbackGoldUpgrade`
+- `GetAdminUserBalance`
+- `GetAdminTransactionHistory`
+- `ModifyUserPoints`
+- `GetAdminUsers`
+- `GrantVipStatus`
+
+Main `AchievementsService` methods:
+
+- `CreateAchievement`
+- `UpdateAchievement`
+- `DeleteAchievement`
+- `GetAdminAchievements`
+- `GetUserAchievements`
+
+Internal/admin gRPC calls are protected with metadata API key:
+
+```text
+x-api-key: <INTERNAL_API_KEY>
+```
+
+## RabbitMQ
+
+The service connects an RMQ microservice and listens to:
+
+```text
+RMQ_QUEUE=loyalty_ticket_purchased
+```
+
+It also publishes loyalty domain events to:
+
+```text
+RMQ_LOYALTY_EVENTS_QUEUE=loyalty.events
+```
+
+Events:
+
+- `TicketPurchased` - handles ticket purchase processing.
+- user date of birth event - stores birthday date and may grant the birthday bonus.
+- `loyalty.tier_upgraded` - emitted when a user moves to a higher tier.
+- `loyalty.points_expiring` - emitted when users should be notified about points expiring soon.
+
+## BullMQ Jobs
+
+Queue names:
+
+```text
+loyalty-queue
+achievements-queue
+```
+
+Loyalty jobs:
+
+| Job | Schedule | What it does |
+| --- | --- | --- |
+| `expire-points` | every day at 03:00 | expires outdated points |
+| `notify-expiring` | every day at 04:00 | marks users who should be notified about soon-to-expire points |
+| `annual-stats-reset` | January 1 at 00:05 | resets `yearPoints` and `yearVisits` |
+| `gold-reset` | first day of every month at 01:00 | clears `goldUpgradeUsedMonth` |
+| `grant-birthday-bonuses` | every day at 00:10 UTC | grants birthday bonuses |
+
+Achievement jobs:
+
+| Job | Queue | What it does |
+| --- | --- | --- |
+| `process-achievement` | `achievements-queue` | validates an action event, updates progress, unlocks an achievement, and grants reward points |
+
+In Redis Insight, search for:
+
+```text
+bull:loyalty-queue:*
+bull:achievements-queue:*
+```
+
+## Project Structure
+
+```text
+src/
+  achievements/
+    constants/       achievement constants
+    enums/           categories, actions, maps
+    helpers/         progress calculation
+    interfaces/      contracts for the achievements module
+    mappers/         gRPC/domain mapping
+    processors/      BullMQ achievement worker
+    schemas/         Zod schemas
+    validators/      validation services
+  common/            shared gRPC status helpers
+  config/            app, BullMQ, RabbitMQ, and CORS config
+  generated/prisma/  generated Prisma client
+  guards/            gRPC API key guard
+  loyalty/
+    consumers/       RabbitMQ consumers
+    constants/       loyalty rules, queues, and cron expressions
+    dto/             RabbitMQ DTOs
+    events/          internal event enums/classes
+    processors/      BullMQ loyalty worker
+    producers/       scheduled job producer
+    utils/           UTC local date utilities
+  prisma/            Prisma module/service
+  proto/             gRPC proto files
+  utils/             shared mappers
+scripts/             BullMQ demo scripts
+docs/                presentation/demo notes
+prisma/              schema and migrations
+```
+
+## Requirements
+
+- Node.js 22+ recommended.
+- npm.
+- PostgreSQL.
+- Redis.
+- RabbitMQ.
+- Prisma CLI through `npx prisma`.
+- Buf CLI if proto lint/build checks are needed.
+
+## Environment
+
+Example `.env`:
 
 ```env
 NODE_ENV=development
-
-# HTTP Server
 PORT=3000
+FRONTEND_URL=http://localhost:5173
 
-# gRPC Service
 GRPC_URL=0.0.0.0:50051
-INTERNAL_API_KEY=cinema-super-secret-internal-grpc-key-2026
+INTERNAL_API_KEY=change-me
 
-# Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/cinema_loyalty_db?schema=public"
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/cinema_loyalty_db?schema=public
 
-# RabbitMQ
 RMQ_URL=amqp://guest:guest@localhost:5672
 RMQ_QUEUE=loyalty_ticket_purchased
 RMQ_LOYALTY_EVENTS_QUEUE=loyalty.events
 
-# Redis (BullMQ)
-REDIS_HOST=localhost
+REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 REDIS_PASSWORD=redis_password
 
-# JWT Validation
-JWT_SECRET=your-super-secret-jwt-key
+JWT_SECRET=change-me
 ```
 
-### 2. Install Dependencies
+## Local Setup
+
+Install dependencies:
 
 ```bash
-bun install
+npm install
 ```
 
-### 3. Compile gRPC Proto Files
-
-This project uses `buf` to manage and lint Protocol Buffers.
-
-```bash
-bun run buf:build
-```
-
-> The proto files are located in `src/proto/loyalty/v1/loyalty.proto`.
-
-### 4. Database Initialization
-
-Generate the Prisma Client and push the schema to your development database:
+Generate the Prisma client:
 
 ```bash
 npx prisma generate
-npx prisma db push
 ```
 
-### 5. Running the Application
+Apply migrations:
 
 ```bash
-# development
-bun run start
-
-# watch mode (hot reload)
-bun run start:dev
-
-# production mode
-bun run start:prod
+npx prisma migrate deploy
 ```
 
----
+For local development with new migrations:
 
-## 📂 Project Structure
+```bash
+npx prisma migrate dev
+```
+
+Validate proto files:
+
+```bash
+npm run buf:lint
+npm run buf:build
+```
+
+Run the development server:
+
+```bash
+npm run start:dev
+```
+
+Production build:
+
+```bash
+npm run build
+npm run start:prod
+```
+
+After startup, the service runs:
+
+- HTTP server on `PORT`;
+- gRPC microservice on `GRPC_URL`;
+- RabbitMQ microservice on `RMQ_QUEUE`;
+- BullMQ workers for `loyalty-queue` and `achievements-queue`.
+
+## Scripts
+
+```bash
+npm run build
+npm run start
+npm run start:dev
+npm run start:prod
+npm run lint
+npm run test
+npm run test:cov
+npm run test:e2e
+npm run buf:lint
+npm run buf:build
+```
+
+## BullMQ Demo
+
+The project includes demo scripts for presenting background jobs.
+
+Prepare demo data:
+
+```bash
+npm run demo:bullmq:clean
+npm run demo:bullmq:seed
+```
+
+Start the service:
+
+```bash
+npm run start:dev
+```
+
+Add jobs to Redis:
+
+```bash
+npm run demo:bullmq:enqueue -- all
+```
+
+Run individual scenarios:
+
+```bash
+npm run demo:bullmq:enqueue -- loyalty
+npm run demo:bullmq:enqueue -- achievements
+npm run demo:bullmq:enqueue -- expire-points
+npm run demo:bullmq:enqueue -- notify-expiring
+npm run demo:bullmq:enqueue -- annual-stats-reset
+npm run demo:bullmq:enqueue -- gold-reset
+npm run demo:bullmq:enqueue -- grant-birthday-bonuses
+```
+
+Check queue and demo data status:
+
+```bash
+npm run demo:bullmq:status
+```
+
+In Redis Insight:
 
 ```text
-src/
-├── achievements/      # Achievement definitions, logic, and gRPC handlers
-├── loyalty/           # Loyalty profiles, point transactions, tier calculations
-├── common/            # Shared utilities, exceptions, and DTOs
-├── config/            # Centralized environment variable validation
-├── guards/            # Auth and API key guards for gRPC
-├── prisma/            # Prisma service and Outbox repository
-├── proto/             # Protocol Buffers (.proto files & buf configs)
-└── generated/         # Auto-generated Prisma client
+bull:loyalty-queue:*
+bull:achievements-queue:*
 ```
 
----
+Presentation scenario notes:
 
-## 📡 API Integration (gRPC)
+```text
+docs/bullmq-demo-presentation.md
+```
 
-The Loyalty service exposes its functionality via **gRPC**. The main backend (`cinema-platform-back`) acts as a gRPC client.
+## Useful SQL For Demo Checks
 
-### Exposed Services (see `loyalty.proto`)
+Loyalty profiles:
 
-- **LoyaltyService**:
-  - `CalculateDiscount`, `UseGoldUpgrade`, `DeductPoints`, `RefundPoints`
-  - `GetProfile`, `GetTransactions`, `ModifyPoints`, `GrantVipStatus`
-- **AchievementsService**:
-  - `GetAchievements`, `GetUserAchievements`
-  - `CreateAchievement`, `UpdateAchievement`, `DeleteAchievement`
+```sql
+select user_id, tier, balance, lifetime_points, year_points, year_visits,
+       balance_expires_at, last_expiry_notification_at, gold_upgrade_used_month
+from loyalty_profiles
+order by user_id;
+```
 
-Authentication for admin/internal endpoints is handled via JWT metadata or an internal API key (`INTERNAL_API_KEY`).
+Transactions:
 
----
+```sql
+select user_id, type, points, balance_after, order_id, description, created_at
+from points_transactions
+order by created_at desc;
+```
 
-## 🛠 Testing
+Birthday grants:
+
+```sql
+select user_id, type, grant_year, points, granted_at
+from user_bonus_grants
+order by granted_at desc;
+```
+
+Achievement progress:
+
+```sql
+select a.code, ua.current, ua.target, ua.is_unlocked, ua.unlocked_at
+from user_achievements ua
+join achievements a on a.id = ua.achievement_id
+order by a.code;
+```
+
+## Troubleshooting
+
+### Prisma Client Error
+
+If you see:
+
+```text
+Cannot find module './internal/class.js'
+```
+
+regenerate the Prisma client and rebuild:
 
 ```bash
-# unit tests
-bun run test
-
-# test coverage
-bun run test:cov
+npx prisma generate
+npm run build
 ```
 
-## 📜 License
+### Proto File Not Found In dist
 
-This project is unlicensed or internal.
+`main.ts` resolves the proto file from several possible locations:
+
+- `src/proto/loyalty/v1/loyalty.proto`
+- `dist/proto/loyalty/v1/loyalty.proto`
+- a path relative to `dist/src/main`
+
+If the service is started from a non-standard directory, check the current working directory and whether `src/proto` exists.
+
+### Redis Insight Does Not Show Completed Jobs
+
+Production scheduled jobs may use `removeOnComplete`, so completed jobs can disappear from Redis. Demo scripts intentionally set:
+
+```text
+removeOnComplete=false
+removeOnFail=false
+```
+
+For presentation, use:
+
+```bash
+npm run demo:bullmq:enqueue -- all
+```
+
+### A Job Key Does Not Look Like `completed`
+
+BullMQ stores a job itself as a hash:
+
+```text
+bull:loyalty-queue:<job-id>
+```
+
+State indexes are stored separately as sorted sets/lists:
+
+```text
+bull:loyalty-queue:delayed
+bull:loyalty-queue:completed
+bull:loyalty-queue:failed
+```
+
+If `completed` is not visible, search for `bull:loyalty-queue:*` and open a concrete job hash. It contains fields such as `name`, `data`, `timestamp`, `delay`, and `opts`.
+
+## Related Documentation
+
+- `docs/bullmq-demo-presentation.md` - BullMQ demo presentation scenario.
+- `src/proto/loyalty/v1/loyalty.proto` - gRPC API contract.
+- `prisma/schema.prisma` - database model.
+
+## License
+
+Internal / UNLICENSED.
