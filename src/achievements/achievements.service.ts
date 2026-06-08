@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma } from 'src/generated/prisma/client';
+import type { Prisma } from 'src/generated/prisma/client';
 import {
   ACHIEVEMENT_JOB_NAME,
   ACHIEVEMENTS_QUEUE,
@@ -11,6 +11,7 @@ import { GetUserAchievementsRequest } from './interfaces/achievements-request.in
 import { GetUserAchievementsResponse } from './interfaces/achievements-response.interface';
 import { ActionEvent } from './interfaces/action-event.interface';
 import { AchievementMapper } from './mappers/achievement.mapper';
+import { ActionEventSchema } from './schemas/events.schemas';
 
 @Injectable()
 export class AchievementsService {
@@ -23,20 +24,28 @@ export class AchievementsService {
   ) {}
 
   async dispatchEvent(event: ActionEvent): Promise<void> {
+    const parsed = ActionEventSchema.safeParse(event);
+
+    if (!parsed.success) {
+      throw new Error(`Invalid achievement event: ${parsed.error.message}`);
+    }
+
+    const validEvent = parsed.data;
+
     this.logger.log(
-      `Queueing achievement event: eventId=${event.eventId}, userId=${event.userId}, actionType=${event.actionType}`,
+      `Queueing achievement event: eventId=${validEvent.eventId}, userId=${validEvent.userId}, actionType=${validEvent.actionType}`,
     );
 
-    if (event.metadata) {
+    if (validEvent.metadata) {
       this.logger.debug(
-        `Achievement event metadata: ${JSON.stringify(event.metadata)}`,
+        `Achievement event metadata: ${JSON.stringify(validEvent.metadata)}`,
       );
     }
 
-    const job = await this.queue.add(ACHIEVEMENT_JOB_NAME, event);
+    const job = await this.queue.add(ACHIEVEMENT_JOB_NAME, validEvent);
 
     this.logger.log(
-      `Achievement job queued: jobId=${job.id}, queue=${ACHIEVEMENTS_QUEUE}, jobName=${ACHIEVEMENT_JOB_NAME}, eventId=${event.eventId}`,
+      `Achievement job queued: jobId=${job.id}, queue=${ACHIEVEMENTS_QUEUE}, jobName=${ACHIEVEMENT_JOB_NAME}, eventId=${validEvent.eventId}`,
     );
   }
 
@@ -69,7 +78,9 @@ export class AchievementsService {
     });
 
     return {
-      achievements: records.map((r) => this.mapper.toUserAchievementGrpc(r)),
+      achievements: records.map((r) =>
+        this.mapper.toUserAchievementGrpc(r, { maskLockedSecrets: true }),
+      ),
     };
   }
 }

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Achievement, UserAchievement } from 'src/generated/prisma/client';
+import type { Achievement, UserAchievement } from 'src/generated/prisma/client';
 import {
   AchievementDto,
   UserAchievementDto,
@@ -9,6 +9,7 @@ import {
   RarityToGrpc,
   StrategyToGrpc,
 } from '../enums/achievement-maps.enum';
+import type { UserAchievementMapperOptions } from '../interfaces/achievement-mapper-options.interface';
 
 @Injectable()
 export class AchievementMapper {
@@ -35,13 +36,50 @@ export class AchievementMapper {
 
   toUserAchievementGrpc(
     userAchievement: UserAchievement & { achievement: Achievement },
+    options: UserAchievementMapperOptions = {},
   ): UserAchievementDto {
+    const shouldMask =
+      options.maskLockedSecrets &&
+      userAchievement.achievement.isSecret &&
+      !userAchievement.isUnlocked;
+
+    if (shouldMask) {
+      return {
+        achievement: this.toLockedSecretGrpc(userAchievement.achievement),
+        current: 0,
+        target: 1,
+        isUnlocked: false,
+        unlockedAt: undefined,
+      };
+    }
+
     return {
       achievement: this.toGrpc(userAchievement.achievement),
       current: userAchievement.current,
       target: userAchievement.target,
       isUnlocked: userAchievement.isUnlocked,
       unlockedAt: userAchievement.unlockedAt?.toISOString() ?? undefined,
+    };
+  }
+
+  private toLockedSecretGrpc(achievement: Achievement): AchievementDto {
+    return {
+      id: achievement.id,
+      code: `secret-${achievement.id}`,
+      name: 'Secret achievement',
+      description: achievement.secretHint ?? '',
+      secretHint: achievement.secretHint ?? undefined,
+      isSecret: true,
+      icon: 'lock',
+      category: CategoryToGrpc[achievement.category] ?? 0,
+      rarity: RarityToGrpc[achievement.rarity] ?? 0,
+      strategy: StrategyToGrpc[achievement.strategy] ?? 0,
+      criteriaJson: '{}',
+      rewardPoints: 0,
+      sortOrder: achievement.sortOrder,
+      isActive: achievement.isActive,
+      createdAt: achievement.createdAt.toISOString(),
+      updatedAt: achievement.updatedAt.toISOString(),
     };
   }
 }
