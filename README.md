@@ -232,8 +232,6 @@ src/
   prisma/            Prisma module/service
   proto/             gRPC proto files
   utils/             shared mappers
-scripts/             BullMQ demo scripts
-docs/                presentation/demo notes
 prisma/              schema and migrations
 ```
 
@@ -340,61 +338,7 @@ npm run buf:lint
 npm run buf:build
 ```
 
-## BullMQ Demo
-
-The project includes demo scripts for presenting background jobs.
-
-Prepare demo data:
-
-```bash
-npm run demo:bullmq:clean
-npm run demo:bullmq:seed
-```
-
-Start the service:
-
-```bash
-npm run start:dev
-```
-
-Add jobs to Redis:
-
-```bash
-npm run demo:bullmq:enqueue -- all
-```
-
-Run individual scenarios:
-
-```bash
-npm run demo:bullmq:enqueue -- loyalty
-npm run demo:bullmq:enqueue -- achievements
-npm run demo:bullmq:enqueue -- expire-points
-npm run demo:bullmq:enqueue -- notify-expiring
-npm run demo:bullmq:enqueue -- annual-stats-reset
-npm run demo:bullmq:enqueue -- gold-reset
-npm run demo:bullmq:enqueue -- grant-birthday-bonuses
-```
-
-Check queue and demo data status:
-
-```bash
-npm run demo:bullmq:status
-```
-
-In Redis Insight:
-
-```text
-bull:loyalty-queue:*
-bull:achievements-queue:*
-```
-
-Presentation scenario notes:
-
-```text
-docs/bullmq-demo-presentation.md
-```
-
-## Useful SQL For Demo Checks
+## Useful SQL Checks
 
 Loyalty profiles:
 
@@ -459,17 +403,11 @@ If the service is started from a non-standard directory, check the current worki
 
 ### Redis Insight Does Not Show Completed Jobs
 
-Production scheduled jobs may use `removeOnComplete`, so completed jobs can disappear from Redis. Demo scripts intentionally set:
+Production scheduled jobs may use `removeOnComplete`, so completed jobs can disappear from Redis. If completed jobs must stay visible while debugging, enqueue jobs with:
 
 ```text
 removeOnComplete=false
 removeOnFail=false
-```
-
-For presentation, use:
-
-```bash
-npm run demo:bullmq:enqueue -- all
 ```
 
 ### A Job Key Does Not Look Like `completed`
@@ -492,7 +430,6 @@ If `completed` is not visible, search for `bull:loyalty-queue:*` and open a conc
 
 ## Related Documentation
 
-- `docs/bullmq-demo-presentation.md` - BullMQ demo presentation scenario.
 - `src/proto/loyalty/v1/loyalty.proto` - gRPC API contract.
 - `prisma/schema.prisma` - database model.
 
