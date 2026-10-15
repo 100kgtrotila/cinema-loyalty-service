@@ -507,7 +507,14 @@ export class LoyaltyService {
       select: { balance: true },
     });
 
-    if (!profile || profile.balance < LOYALTY_RULES.MINIMUM_DEDUCTION) {
+    const pointsToDeduct = Math.floor(
+      Math.min(
+        profile?.balance ?? 0,
+        orderAmount * LOYALTY_RULES.MAX_DISCOUNT_FRACTION,
+      ),
+    );
+
+    if (pointsToDeduct < LOYALTY_RULES.MINIMUM_DEDUCTION) {
       return {
         isAllowed: false,
         pointsToDeduct: 0,
@@ -515,11 +522,6 @@ export class LoyaltyService {
       };
     }
 
-    const maxDiscountAllowed = orderAmount * 0.5;
-
-    const pointsToDeduct = Math.floor(
-      Math.min(profile.balance, maxDiscountAllowed),
-    );
     const amountToPay = orderAmount - pointsToDeduct;
 
     return {

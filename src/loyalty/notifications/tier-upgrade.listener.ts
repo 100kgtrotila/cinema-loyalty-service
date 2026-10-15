@@ -17,7 +17,7 @@ export class TierUpgradeListener {
     private readonly client: ClientProxy,
   ) {}
 
-  @OnEvent(RABBITMQ_EVENTS.TIER_UPGRADED)
+  @OnEvent(RABBITMQ_EVENTS.TIER_UPGRADED, { suppressErrors: false })
   async handle(payload: TierUpgradeEvent): Promise<void> {
     this.logger.log(
       `Publishing tier upgrade for user ${payload.userId}: ${payload.oldTier} → ${payload.newTier}`,

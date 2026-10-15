@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { EventEmitter2 } from 'eventemitter2';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RawOutboxEvent } from './interfaces/raw-outbox-event.interface';
 import { CRON_SCHEDULES } from './constants/loyalty.constants';
@@ -13,6 +14,7 @@ export class OutboxPublisherService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
+    private readonly configService: ConfigService,
   ) {}
 
   @Cron(CRON_SCHEDULES.EVERY_5_SECONDS)
@@ -42,13 +44,31 @@ export class OutboxPublisherService {
 
   private async processEvent(event: RawOutboxEvent): Promise<void> {
     try {
-      const listenerResults = await this.emitter.emitAsync(
-        event.type,
-        event.payload,
+      const timeoutMs = this.configService.getOrThrow<number>(
+        'app.outboxPublishTimeoutMs',
       );
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const listenerResults = await Promise.race([
+          this.emitter.emitAsync(event.type, event.payload),
+          new Promise<never>((_, reject) => {
+            timeout = setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `Outbox publication timed out after ${timeoutMs} ms`,
+                  ),
+                ),
+              timeoutMs,
+            );
+          }),
+        ]);
 
-      if (listenerResults.length === 0) {
-        throw new Error(`No outbox listener registered for ${event.type}`);
+        if (listenerResults.length === 0) {
+          throw new Error(`No outbox listener registered for ${event.type}`);
+        }
+      } finally {
+        if (timeout) clearTimeout(timeout);
       }
 
       await this.prisma.outboxEvent.update({

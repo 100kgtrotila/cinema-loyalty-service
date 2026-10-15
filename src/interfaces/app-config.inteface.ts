@@ -3,4 +3,5 @@ export interface AppConfig {
   grpcUrl: string;
   rmqUrl: string;
   rmqQueue: string;
+  outboxPublishTimeoutMs: number;
 }

@@ -19,6 +19,7 @@ export const LOYALTY_RULES = {
   SPECIAL_EVENT_MULTIPLIER: 2.0,
 
   MINIMUM_DEDUCTION: 75,
+  MAX_DISCOUNT_FRACTION: 0.5,
 
   TIER_THRESHOLDS: {
     [Tier.GOLD]: { visits: 20, points: 5000 },
