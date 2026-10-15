@@ -63,6 +63,7 @@ Cinema Loyalty Service is a NestJS microservice responsible for the loyalty doma
 | Layer | Technology | Purpose |
 | --- | --- | --- |
 | Runtime | Node.js 22 | JavaScript runtime |
+| Package manager | Bun 1.3.13 | Dependency installation and package scripts |
 | Framework | NestJS 11 | Application modules, DI, microservices |
 | Language | TypeScript 5.7 | Typed service implementation |
 | Database | PostgreSQL | Durable loyalty and achievement state |
@@ -306,8 +307,8 @@ prisma/              schema and migrations
 
 | Requirement | Version / Notes |
 | --- | --- |
-| Node.js | `22+` recommended |
-| npm | project package manager |
+| Node.js | `22` (application runtime) |
+| Bun | `1.3.13` (package manager; `bun.lock` is authoritative) |
 | PostgreSQL | required for Prisma datasource |
 | Redis | required for BullMQ |
 | RabbitMQ | required for event consumers/publishers |
@@ -330,6 +331,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5433/cinema_loyalty_db?sch
 RMQ_URL=amqp://guest:guest@localhost:5672
 RMQ_QUEUE=loyalty_ticket_purchased
 RMQ_LOYALTY_EVENTS_QUEUE=loyalty.events
+OUTBOX_PUBLISH_TIMEOUT_MS=10000
 
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
@@ -341,30 +343,42 @@ JWT_SECRET=change-me
 ## Local Setup
 
 ```bash
-npm install
-npx prisma generate
-npx prisma migrate deploy
-npm run start:dev
+bun install --frozen-lockfile
+bun x prisma generate
+bun x prisma migrate deploy
+bun run start:dev
 ```
 
 For local development with new migrations:
 
 ```bash
-npx prisma migrate dev
+bun x prisma migrate dev
 ```
 
 Validate proto files:
 
 ```bash
-npm run buf:lint
-npm run buf:build
+bun run buf:lint
+bun run buf:build
 ```
 
 Production build:
 
 ```bash
-npm run build
-npm run start:prod
+bun run build
+bun run start:prod
+```
+
+`bun run start:prod` launches `dist/main.js` with Node.js 22. Bun remains the package manager and script runner. The Docker build uses Bun 1.3.13 for frozen installs in both stages and Node.js 22 for the application process.
+
+The pull request workflow runs the same install, Prisma generation, lint, build, and Jest checks:
+
+```bash
+bun install --frozen-lockfile
+bun x prisma generate
+bun run lint
+bun run build
+bun run test
 ```
 
 After startup, the service runs:
@@ -380,16 +394,16 @@ After startup, the service runs:
 
 | Command | Purpose |
 | --- | --- |
-| `npm run build` | Build NestJS project |
-| `npm run start` | Start app once |
-| `npm run start:dev` | Start app in watch mode |
-| `npm run start:prod` | Start compiled app from `dist/src/main` |
-| `npm run lint` | Run ESLint with auto-fix |
-| `npm run test` | Run unit tests |
-| `npm run test:cov` | Run tests with coverage |
-| `npm run test:e2e` | Run e2e tests |
-| `npm run buf:lint` | Lint proto files |
-| `npm run buf:build` | Validate proto build |
+| `bun run build` | Build NestJS project |
+| `bun run start` | Start app once |
+| `bun run start:dev` | Start app in watch mode |
+| `bun run start:prod` | Start compiled app with Node.js from `dist/main.js` |
+| `bun run lint` | Run ESLint without modifying files |
+| `bun run test` | Run Jest unit and regression tests |
+| `bun run test:cov` | Run Jest tests with coverage |
+| `bun run test:e2e` | Run Jest e2e tests |
+| `bun run buf:lint` | Lint proto files |
+| `bun run buf:build` | Validate proto build |
 
 ## Useful SQL Checks
 
@@ -431,7 +445,7 @@ order by a.code;
 
 | Problem | Fix |
 | --- | --- |
-| `Cannot find module './internal/class.js'` | Run `npx prisma generate` and rebuild |
+| `Cannot find module './internal/class.js'` | Run `bun x prisma generate` and rebuild |
 | Proto file not found in `dist` | Check `cwd` and make sure `src/proto` or `dist/proto` exists |
 | Completed BullMQ jobs disappear | Production jobs may remove completed entries |
 | Redis key is not named `completed` | Open the concrete job hash, for example `bull:loyalty-queue:<job-id>` |
