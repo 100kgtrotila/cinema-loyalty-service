@@ -432,6 +432,17 @@ replayed or edited. Fresh empty databases can use normal `migrate deploy`.
 
 ## Local Setup
 
+GitHub Actions runs verification on pull requests: Bun 1.3.13 frozen install,
+Prisma generation, lint, build, Jest, disposable PostgreSQL integration tests,
+and a production Docker build without pushing an image. It has read-only
+repository permissions and uses no SSH or deployment secrets. Transport tests
+remain local because they build the adjacent `cinema-platform-back` checkout;
+see `bun run test:transports` and `test/e2e/compose.override.yml`.
+
+Automatic deployment is deliberately disabled. The former push-to-master SSH
+workflow has been removed until a working environment and the migration rollout
+procedure are agreed. Merging this PR does not deploy the service.
+
 ```bash
 bun install --frozen-lockfile
 bun x prisma generate

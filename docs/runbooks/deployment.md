@@ -1,6 +1,6 @@
 # Deployment and incident runbook (draft)
 
-**Draft — do not use as a live production procedure before infrastructure review.** The repository deploy workflow invokes Docker Compose from a parent deployment workspace, so inspect that external Compose configuration before finalizing commands.
+**Draft — do not use as a live production procedure before infrastructure review.** Automatic deployment is disabled: the former SSH push-to-master workflow was removed. Only pull-request verification runs in GitHub Actions. A working environment and the migration rollout procedure in README must be reviewed before deployment automation is reintroduced.
 
 ## Pre-deploy
 

@@ -8,7 +8,7 @@ This document captures invariants and review questions, not a claim that every i
 - `TicketPurchasedConsumer` validates inbound events and delegates purchase handling to `LoyaltyService`.
 - PostgreSQL holds loyalty profiles, ledger, processed event records, achievement progress, and the existing tier outbox.
 - Redis/BullMQ transports background jobs. `AchievementsProcessor` modifies progress/rewards in PostgreSQL.
-- The achievement intent outbox is a planned/locally developed flow and may be absent on a remote branch: check for `AchievementDispatchIntent`, the publisher, and actual transaction boundaries before analyzing it.
+- Purchase/VIP transactions save `AchievementDispatchIntent` rows atomically; `AchievementIntentPublisher` retries BullMQ delivery. RabbitMQ tier outbox has a separate claim/lease/token recovery mechanism. Their retry and ownership guarantees differ; see `docs/achievement-delivery.md` and README.
 
 ## Non-negotiable invariants
 

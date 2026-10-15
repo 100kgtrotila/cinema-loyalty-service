@@ -22,7 +22,7 @@ SELECT * FROM orders WHERE data @> '{"status": "shipped"}';
 UPDATE orders SET data = data || '{"shipping":{"tracking":{"number":"123"}}}';
 
 -- ✅ GOOD: Structured JSONB with validation
-ALTER TABLE orders ADD CONSTRAINT valid_status 
+ALTER TABLE orders ADD CONSTRAINT valid_status
 CHECK (data->>'status' IN ('pending', 'shipped', 'delivered'));
 ```
 
