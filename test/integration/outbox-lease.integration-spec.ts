@@ -423,6 +423,62 @@ describe('Rabbit outbox leases on PostgreSQL', () => {
     ).toBe(53);
   });
 
+  it('recovers expired claims despite a backlog of exhausted legacy PENDING rows', async () => {
+    for (let index = 0; index < 53; index++) {
+      const row = await event(2);
+      // The old publisher used a fixed budget of 5, ignoring this row's budget.
+      await prisma.outboxEvent.update({
+        where: { id: row.id },
+        data: { attempts: 2 },
+      });
+    }
+    const expired = await event(1);
+    await prisma.outboxEvent.update({
+      where: { id: expired.id },
+      data: {
+        status: 'PROCESSING',
+        attempts: 1,
+        leaseToken: randomUUID(),
+        leaseExpiresAt: new Date(0),
+      },
+    });
+    const deferredRow = await event();
+    await prisma.outboxEvent.update({
+      where: { id: deferredRow.id },
+      data: { nextAttemptAt: new Date(Date.now() + 86400000) },
+    });
+    const untouched = await prisma.outboxEvent.findUniqueOrThrow({
+      where: { id: deferredRow.id },
+    });
+    let deliveries = 0;
+    const worker = publisher(() => {
+      deliveries++;
+      return Promise.resolve();
+    });
+    await worker.publishPendingEvents();
+    expect(
+      await prisma.outboxEvent.findUniqueOrThrow({
+        where: { id: expired.id },
+      }),
+    ).toMatchObject({ status: 'FAILED', attempts: 1, leaseToken: null });
+    await worker.publishPendingEvents();
+    expect(
+      await prisma.outboxEvent.count({ where: { status: 'FAILED' } }),
+    ).toBe(54);
+    expect(
+      await prisma.outboxEvent.findUniqueOrThrow({
+        where: { id: deferredRow.id },
+      }),
+    ).toEqual(untouched);
+    await worker.publishPendingEvents(); // An empty recovery tick is a no-op.
+    expect(
+      await prisma.outboxEvent.findUniqueOrThrow({
+        where: { id: deferredRow.id },
+      }),
+    ).toEqual(untouched);
+    expect(deliveries).toBe(0);
+  });
+
   it('does not automatically replay legacy PROCESSING rows without a claim token', async () => {
     const row = await event();
     await prisma.outboxEvent.update({

@@ -28,6 +28,7 @@ export class OutboxPublisherService {
     this.publishing = true;
     try {
       await this.recoverExpiredClaims();
+      await this.failExhaustedPending();
       const concurrency = this.configService.getOrThrow<number>(
         'app.outboxPublishConcurrency',
       );
@@ -71,9 +72,27 @@ export class OutboxPublisherService {
           updated_at = clock_timestamp()
       WHERE id IN (
         SELECT id FROM outbox_events
-        WHERE (status = 'PROCESSING'::"OutboxEventStatus"
-               AND lease_token IS NOT NULL AND lease_expires_at <= clock_timestamp())
-           OR (status = 'PENDING'::"OutboxEventStatus" AND attempts >= max_attempts)
+        WHERE status = 'PROCESSING'::"OutboxEventStatus"
+          AND lease_token IS NOT NULL AND lease_expires_at <= statement_timestamp()
+        ORDER BY created_at, id LIMIT ${BATCH_SIZE} FOR UPDATE SKIP LOCKED
+      )
+    `;
+  }
+
+  private async failExhaustedPending(): Promise<void> {
+    // The current writer never creates exhausted PENDING rows. Older publishers
+    // used a fixed attempt budget, so existing rows still need bounded cleanup.
+    await this.prisma.$executeRaw`
+      UPDATE outbox_events
+      SET status = 'FAILED'::"OutboxEventStatus",
+          next_attempt_at = clock_timestamp() +
+            LEAST(${RETRY_MAX_MS}, ${RETRY_BASE_MS} * power(2, LEAST(GREATEST(attempts - 1, 0), 4))) * interval '1 millisecond',
+          lease_token = NULL, lease_expires_at = NULL,
+          error = 'Outbox attempts exhausted (including expired claims)',
+          updated_at = clock_timestamp()
+      WHERE id IN (
+        SELECT id FROM outbox_events
+        WHERE status = 'PENDING'::"OutboxEventStatus" AND attempts >= max_attempts
         ORDER BY created_at, id LIMIT ${BATCH_SIZE} FOR UPDATE SKIP LOCKED
       )
     `;
@@ -91,7 +110,7 @@ export class OutboxPublisherService {
       WHERE id IN (
         SELECT id FROM outbox_events
         WHERE status = 'PENDING'::"OutboxEventStatus"
-          AND attempts < max_attempts AND next_attempt_at <= clock_timestamp()
+          AND attempts < max_attempts AND next_attempt_at <= statement_timestamp()
         ORDER BY created_at, id LIMIT ${limit} FOR UPDATE SKIP LOCKED
       )
       RETURNING *

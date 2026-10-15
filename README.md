@@ -389,6 +389,47 @@ must account for it and respect `maxAttempts`, or mark the row `FAILED` for
 investigation. There is no automatic legacy replay. Old publishers must not run
 alongside the new version because their completion updates ignore ownership.
 
+Outbox candidate selection uses PostgreSQL `statement_timestamp()` so due-time
+indexes can bound the search. Lease creation and ownership checks still use
+`clock_timestamp()`. Each tick separately recovers up to 50 expired claims and
+fails up to 50 exhausted PENDING rows. New publishers do not produce the latter;
+older publishers used a fixed budget of 5 instead of the row's `maxAttempts`.
+The partial `outbox_events_exhausted_pending_idx` indexes only these exceptions;
+its predicate is maintained in migration SQL, outside the Prisma schema DSL.
+
+Migration `20261016020000_index_exhausted_outbox_pending` uses `CREATE INDEX
+CONCURRENTLY`, verified with `bun x prisma migrate deploy`. Do not wrap it in a
+transaction. Inspect `pg_index.indisvalid/indisready` after deployment. If building
+it fails, inspect and drop the invalid index with `DROP INDEX CONCURRENTLY`, mark
+that failed migration rolled back with `prisma migrate resolve --rolled-back`,
+then retry deployment; do not skip an invalid index with `IF NOT EXISTS`.
+
+The earlier lease and command-result migrations are unchanged. Their regular
+index builds block writes, and the validated CHECK scans `processed_events`
+under an exclusive lock. Table sizes and production lock waits are unknown.
+For a large existing database where these migrations are **not yet applied**,
+an operator must execute their equivalent DDL in stages before normal deploy:
+
+1. Stop old publishers; keep new publishers/RPC instances inactive. Use a
+   dedicated SQL session with a short `lock_timeout` (for example `2s`).
+2. Execute the lease migration's additive ALTER; build its two indexes with
+   `CREATE INDEX CONCURRENTLY` outside a transaction. Verify both indexes valid.
+3. Execute the command migration's additive ALTER, then add its exact CHECK with
+   `NOT VALID`. Commit before running `VALIDATE CONSTRAINT` separately; confirm
+   `pg_constraint.convalidated = true`. Do not leave columns/constraint/indexes
+   partially installed or mark unfinished DDL as applied.
+4. Verify names, types, defaults, index definitions and CHECK against the two
+   original SQL files. Record each completed equivalent migration using
+   `bun x prisma migrate resolve --applied <migration-directory-name>`.
+5. Run `bun x prisma migrate deploy` for the new concurrent partial index, then
+   activate new instances and perform the legacy-row reconciliation above.
+
+This staged DDL was checked on disposable PostgreSQL 16, including the
+`ShareUpdateExclusiveLock` held by CHECK validation. Initial ALTER statements
+still need short exclusive locks; concurrent builds/validation consume I/O and
+may wait for existing transactions. Already-applied migrations must not be
+replayed or edited. Fresh empty databases can use normal `migrate deploy`.
+
 ## Local Setup
 
 ```bash

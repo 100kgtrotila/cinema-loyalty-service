@@ -113,7 +113,7 @@ describe('OutboxPublisherService', () => {
 
     await publisher.publishPendingEvents();
 
-    expect(executeRaw).toHaveBeenCalledTimes(2); // Recovery then failed attempt.
+    expect(executeRaw).toHaveBeenCalledTimes(3); // Two recovery branches, then failure.
     expect(executeRaw).toHaveBeenLastCalledWith(
       expect.any(Array),
       5000,
@@ -146,7 +146,7 @@ describe('OutboxPublisherService', () => {
 
     await publisher.publishPendingEvents();
 
-    expect(executeRaw).toHaveBeenCalledTimes(2);
+    expect(executeRaw).toHaveBeenCalledTimes(3);
     expect(executeRaw).toHaveBeenLastCalledWith(
       expect.any(Array),
       5000,
