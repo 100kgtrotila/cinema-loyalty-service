@@ -1,0 +1,87 @@
+services:
+  cinema-db:
+    container_name: ${E2E_PROJECT}-cinema-db
+    ports: !override ['127.0.0.1::5432']
+    volumes: !override []
+    tmpfs: [/var/lib/postgresql/data]
+  cinema-redis:
+    container_name: ${E2E_PROJECT}-cinema-redis
+    ports: !override ['127.0.0.1::6379']
+    volumes: !override []
+  cinema-rabbitmq:
+    container_name: ${E2E_PROJECT}-rabbitmq
+    ports: !override ['127.0.0.1::5672', '127.0.0.1::15672']
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'check_running']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    environment:
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +SDcpu 1 +SDio 1'
+  loyalty-db:
+    container_name: ${E2E_PROJECT}-loyalty-db
+    image: postgres:16-alpine
+    ports: !override ['127.0.0.1::5432']
+    volumes: !override []
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d cinema_loyalty_db']
+      interval: 1s
+      timeout: 3s
+      retries: 30
+  cinema-seeder:
+    profiles: ['manual-seed']
+    volumes: !override []
+  loyalty-redis:
+    image: redis:7-alpine
+    ports: ['127.0.0.1::6379']
+    command: ['redis-server', '--requirepass', 'redis_password']
+  monolith-api:
+    image: loyalty-monolith-e2e:local
+    build:
+      context: ${LOYALTY_REPO}
+      dockerfile: test/e2e/Dockerfile.monolith
+      additional_contexts:
+        monolith: ${MONOLITH_REPO}
+    ports: ['127.0.0.1::8080']
+    environment: &monolith-env
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=cinema-db;Port=5432;Database=cinema_local_db;Username=postgres;Password=postgres_password
+      ConnectionStrings__RedisConnection: cinema-redis:6379,password=redis_password
+      RabbitMq__Host: cinema-rabbitmq
+      RabbitMq__Username: guest
+      RabbitMq__Password: guest
+      RabbitMq__VirtualHost: /
+      Grpc__LoyaltyServiceUrl: http://loyalty-service:50051
+      InternalServices__ApiKey: local-integration-key
+      JwtSettings__Secret: local-integration-jwt-secret-at-least-32-bytes
+      JwtSettings__Issuer: loyalty-e2e
+      JwtSettings__Audience: loyalty-e2e
+      JwtSettings__ExpirationInMinutes: '30'
+      SeedIdentity__Enabled: 'false'
+      TmdbSettings__ApiKey: local-test
+      Gemini__ApiKey: local-test
+      Gemini__BaseUrl: http://127.0.0.1:9
+      TmdbSettings__BaseUrl: http://127.0.0.1:9
+      TmdbSettings__ImageBaseUrl: http://127.0.0.1:9
+      SmtpSettings__Host: 127.0.0.1
+      SmtpSettings__Port: '9'
+  monolith-migrate:
+    image: loyalty-monolith-e2e:local
+    entrypoint: ['dotnet', '/updater/Cinema.DbUpdater.dll']
+    environment: *monolith-env
+    profiles: ['tools']
+  loyalty-service:
+    build:
+      context: ${LOYALTY_REPO}
+    ports: ['127.0.0.1::3000', '127.0.0.1::50051']
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@loyalty-db:5432/cinema_loyalty_db
+      REDIS_HOST: loyalty-redis
+      REDIS_PORT: '6379'
+      REDIS_PASSWORD: redis_password
+      RMQ_URL: amqp://guest:guest@cinema-rabbitmq:5672
+      GRPC_URL: 0.0.0.0:50051
+      INTERNAL_API_KEY: local-integration-key
+      FRONTEND_URL: http://localhost

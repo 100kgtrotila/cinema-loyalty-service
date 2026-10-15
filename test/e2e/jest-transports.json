@@ -1,0 +1,11 @@
+{
+  "rootDir": "../..",
+  "testEnvironment": "node",
+  "testRegex": "test/e2e/.*\\.transport-spec\\.ts$",
+  "testTimeout": 60000,
+  "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/src/$1",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  }
+}

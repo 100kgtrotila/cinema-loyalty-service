@@ -115,8 +115,9 @@ sequenceDiagram
     Loyalty->>DB: BURN_DISCOUNT transaction
     Platform->>Rabbit: TicketPurchased event
     Rabbit->>Loyalty: consume TicketPurchased
-    Loyalty->>DB: update visits/tier/points
-    Loyalty->>Jobs: enqueue achievement events
+    Loyalty->>DB: commit visits/tier/points + achievement intents
+    Note over Loyalty,DB: same transaction as purchase dedupe and ledger
+    Loyalty->>Jobs: scheduled publisher enqueues persisted intents
     Jobs->>DB: update achievement progress
 ```
 
@@ -130,9 +131,12 @@ flowchart TD
     Tx["Prisma transaction"]
     Outbox["outbox_events"]
     Publish["Outbox publisher -> RabbitMQ"]
+    Intents["achievement_dispatch_intents"]
+    Queue["Achievement intent publisher -> BullMQ"]
 
     Event --> Validate --> Idempotency --> Tx
     Tx --> Outbox --> Publish
+    Tx --> Intents --> Queue
 ```
 
 ## Business Rules
@@ -269,6 +273,7 @@ bull:achievements-queue:*
 | `processed_events` | Idempotency for events and commands |
 | `user_bonus_grants` | One-time bonus grant tracking |
 | `outbox_events` | Reliable outbound domain events |
+| `achievement_dispatch_intents` | Purchase achievement delivery to BullMQ, retried until accepted |
 | `achievements` | Achievement definitions and criteria |
 | `user_achievements` | User progress and unlock state |
 
@@ -391,6 +396,16 @@ The runner creates a disposable Compose project with a random loopback port, app
 
 See [profile concurrency and integration notes](docs/profile-concurrency.md) for the writer audit, lock discipline, regression coverage, and monolith compatibility findings.
 
+For HTTP checkout through the sibling `../cinema-platform-back` repository, real gRPC/RabbitMQ/BullMQ delivery, and loyalty Redis outage recovery:
+
+```bash
+bun run test:transports
+```
+
+This requires Docker Compose 2.24.4+ and BuildKit additional contexts. The runner builds the monolith in .NET 10 containers, runs its checkout characterization tests, migrates disposable databases, and uses random loopback ports. Monolith sources are copied into the build context; no host source mount is writable. Only resources belonging to this test project are removed. Results and repository SHAs are written under `.tmp/`. This optional suite requires both repositories and is separate from PR CI.
+
+Achievement intents are saved atomically with purchases. A publisher polls every five seconds, retries unavailable Redis, and uses the intent UUID as the BullMQ job ID. `delivered_at` means queue acceptance; achievement effects retain their PostgreSQL deduplication. Apply migrations before starting the updated service. See [delivery guarantees, E2E evidence, and remaining limits](docs/achievement-delivery.md).
+
 After startup, the service runs:
 
 | Runtime Part | Source |
@@ -411,6 +426,7 @@ After startup, the service runs:
 | `bun run lint` | Run ESLint without modifying files |
 | `bun run test` | Run Jest unit and regression tests |
 | `bun run test:integration` | Run concurrency integration tests on disposable PostgreSQL 16 (Docker required) |
+| `bun run test:transports` | Run monolith HTTP checkout and loyalty transport/recovery tests on an isolated Docker stack |
 | `bun run test:cov` | Run Jest tests with coverage |
 | `bun run test:e2e` | Run Jest e2e tests |
 | `bun run buf:lint` | Lint proto files |

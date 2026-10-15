@@ -29,7 +29,7 @@ Baseline: `cfc5fb4` поверх `d3f1bc5`. Frozen install, build і 12 Jest-т�
 - Для writer-ів, які можуть створювати профіль, `INSERT ... ON CONFLICT DO NOTHING` спирається на unique `user_id` перед row lock. Це також захищає конкурентне створення. Achievement processing тепер ініціалізує порожній профіль до progress; бали нараховуються лише за чинними умовами unlock/reward.
 - Якщо рядка не було під час lock у deduct/refund/expiry, цей writer не може потім прочитати й змінити щойно створений незаблокований профіль.
 - На commit разом зберігаються profile, ledger, dedupe/grants/progress та наявні tier outbox records. Наявність outbox для кожного виду зміни не додається.
-- Queue dispatch після purchase залишається після commit; RabbitMQ/Redis-викликів усередині DB-транзакцій немає.
+- Achievement intents зберігаються тим самим transaction client разом із purchase; окремий publisher передає їх у BullMQ після commit. RabbitMQ/Redis-викликів усередині DB-транзакцій немає.
 - `P2034`, а також SQLSTATE `40001`/`40P01` у Prisma pg adapter errors (ORM або raw SQL `P2010`) повторюються максимум тричі загалом. Між спробами є затримки 10 і 20 ms поза транзакцією. Інші помилки не повторюються. Після вичерпання спроб діє чинний service error contract.
 - Expiry повторно перевіряє `balance > 0` і `balanceExpiresAt <=` час початку job. Ledger отримує фактичний поточний balance. Обробка пачки тепер має більше коротких транзакцій замість одного batch UPDATE; це плата за точність і коротке утримання locks.
 
@@ -41,7 +41,7 @@ Baseline: `cfc5fb4` поверх `d3f1bc5`. Frozen install, build і 12 Jest-т�
 
 Suite перевіряє два списання; два нарахування; purchase/deduct; refund/deduct; admin deductions; achievement/purchase; expiry після продовження; фактичну суму expiry після списання; rollback profile/ledger/outbox/dedupe через PostgreSQL trigger; повтори deduct/refund/purchase/birthday/achievement; annual reset; переходи tier; scheduled birthday; VIP/purchase; відсутній профіль; конкурентне створення; PostgreSQL conflict retry та його ліміт.
 
-Підсумкова локальна перевірка: 27 integration tests і 12 наявних unit/regression tests пройшли; build пройшов; lint має лише baseline-попередження в `main.ts`. Docker Compose setup не залишив контейнерів після завершення. Додано integration command до PR CI; сам віддалений GitHub workflow у межах цієї роботи не запускався.
+Перевірка concurrency етапу: 27 integration tests і 12 наявних unit/regression tests пройшли; build пройшов; lint має лише baseline-попередження в `main.ts`. Після додавання durable intents suite містить 31 тест: додано atomic purchase/VIP intents, rollback при помилці intent INSERT, retry після Redis/DB failure зі сталим job ID і enqueue timeout. Docker Compose setup не залишив контейнерів після завершення. PR CI запускає integration command; сам віддалений GitHub workflow у межах цієї роботи не запускався.
 
 Для пар writer-ів використовується утримуваний row lock і підтвердження двох сесій у `pg_stat_activity`. Для expiry тест блокує перший профіль із пачки, виконує реальне поповнення/списання другого кандидата після вибору пачки й лише потім дозволяє expiry продовжити. SQLSTATE та outbox failure інжектуються функціями/trigger-ами в disposable DB; production schema не змінюється.
 
@@ -61,10 +61,10 @@ Jest для Prisma 7 dynamic imports запускається з `--experimental
 1. Додати явні обмежені RPC deadlines та визначену політику transient retry з тими самими idempotency keys. Причина: cancellation/timeout може настати після commit у loyalty. Поточний клієнт повертає false, checkout позначає order failed і не викликає компенсацію для непідтвердженого deduct. Наслідок — можливе списання за failed order навіть за правильного локального balance.
 2. Зберігати та відновлювати неоднозначний результат deduct/refund через durable reconciliation. Повтор з тим самим ключем може підтвердити вже виконаний ефект; порядок відновлення має бути визначений до компенсації. Невдала refund compensation зараз лише логуються, тому автоматичної гарантії відновлення немає. Для відновлення після request cancellation потрібен окремий життєвий цикл, а не вже скасований request token.
 
-Під час перевірки спільний стенд не був запущений: не було працюючих Docker containers або dotnet process. Покупка зі списанням через API моноліту та живий RabbitMQ transport наскрізно не перевірені.
+Під час початкового concurrency етапу спільний стенд не запускався. Наступна перевірка зібрала ізольований стенд із сусіднього репозиторію та перевірила HTTP checkout, gRPC deduction, RabbitMQ і Redis recovery. Версії, точні сценарії й межі наведено в [achievement-delivery.md](achievement-delivery.md).
 
 ## Залишкові межі
 
 Locks захищають writer-и цього сервісу; прямий SQL або новий writer має дотримуватися тієї самої дисципліни. Навантаження, contention latency та calendar-year boundary потребують окремої оцінки. Збережені обмеження існуючої idempotency (namespace/payload semantics), refund і GOLD flow.
 
-Наступний крок — durable dispatch achievements: зараз DB purchase може закомітитися до помилки `dispatchEvent`, а повтор purchase пропускається через processed event. Outbox lease recovery і delivery duplicates після timeout залишаються окремими задачами.
+Наступний запланований крок, durable dispatch achievements, включено за окремим погодженням користувача: purchase та intents тепер атомарні, доставка в BullMQ повторюється незалежно від повтору purchase. Історичні пропущені події автоматично не відновлюються. Outbox lease recovery, Redis durability та операційне відновлення вичерпаних BullMQ jobs залишаються окремими задачами.
