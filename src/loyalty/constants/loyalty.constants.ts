@@ -81,6 +81,12 @@ export const ERROR_MESSAGES = {
   INTERNAL_GOLD_UPGRADE: 'Failed to process gold upgrade',
   INTERNAL_GOLD_ROLLBACK: 'Failed to rollback gold upgrade',
   INTERNAL_REFUND: 'Failed to process refund',
+  INVALID_POINT_COMMAND:
+    'Invalid point command: UUID user/order, positive int32 amount and a non-empty key of at most 128 characters are required',
+  IDEMPOTENCY_CONFLICT:
+    'Idempotency key is already used for a different request',
+  LEGACY_IDEMPOTENCY:
+    'Idempotency key belongs to a legacy or different event; reconciliation required',
 } as const;
 
 export const TRANSACTION_DESCRIPTIONS = {

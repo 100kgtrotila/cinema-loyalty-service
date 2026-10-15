@@ -31,6 +31,11 @@ import {
 } from './constants/loyalty.constants';
 import { UserDateOfBirthSetEvent } from './interfaces/user-date-of-birth-set-event.interface';
 import {
+  parsePointCommand,
+  replayPointCommand,
+  claimPointCommand,
+} from './point-command-idempotency';
+import {
   getUtcLocalYear,
   isFutureUtcLocalDate,
   isSameUtcMonthDay,
@@ -111,29 +116,30 @@ export class LoyaltyService {
     orderId: string,
     idempotencyKey: string,
   ): Promise<DeductPointsResponse> {
-    if (amount < LOYALTY_RULES.MINIMUM_DEDUCTION) {
+    const command = parsePointCommand({
+      operation: 'DEDUCT',
+      userId,
+      amount,
+      orderId,
+      idempotencyKey,
+    });
+    if (!command)
       return {
         success: false,
         balanceAfter: 0,
-        errorMessage: `Minimum deduction is ${LOYALTY_RULES.MINIMUM_DEDUCTION} points`,
+        errorMessage: ERROR_MESSAGES.INVALID_POINT_COMMAND,
       };
-    }
 
     try {
       const result = await withTransactionRetry(this.prisma, async (trx) => {
-        const profileLocked = await lockLoyaltyProfile(trx, userId);
-        const alreadyProcessed = await trx.processedEvent.findUnique({
-          where: { eventId: idempotencyKey },
-        });
-
-        if (alreadyProcessed) {
-          const profile = await trx.loyaltyProfile.findFirstOrThrow({
-            where: { userId },
-            select: { balance: true },
-          });
+        const profileLocked = await lockLoyaltyProfile(trx, command.userId);
+        const replay = await replayPointCommand(trx, command);
+        if (replay) return replay;
+        if (amount < LOYALTY_RULES.MINIMUM_DEDUCTION) {
           return {
-            success: true,
-            balanceAfter: profile.balance,
+            success: false,
+            balanceAfter: 0,
+            errorMessage: `Minimum deduction is ${LOYALTY_RULES.MINIMUM_DEDUCTION} points`,
           };
         }
 
@@ -157,6 +163,8 @@ export class LoyaltyService {
         }
 
         const newBalance = profile.balance - amount;
+        const racedReplay = await claimPointCommand(trx, command, newBalance);
+        if (racedReplay) return racedReplay;
 
         await trx.loyaltyProfile.update({
           where: { id: profile.id },
@@ -177,11 +185,7 @@ export class LoyaltyService {
           },
         });
 
-        await trx.processedEvent.create({
-          data: { eventId: idempotencyKey },
-        });
-
-        return { success: true, balanceAfter: newBalance };
+        return { success: true, balanceAfter: newBalance, errorMessage: '' };
       });
 
       return result;
@@ -265,6 +269,8 @@ export class LoyaltyService {
         });
 
         if (alreadyProcessed) {
+          if (alreadyProcessed.operation !== null)
+            throw new Error(ERROR_MESSAGES.IDEMPOTENCY_CONFLICT);
           this.logger.warn(`Event ${msg.eventId} already processed. Skipping.`);
           return;
         }

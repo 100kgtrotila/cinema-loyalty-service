@@ -122,6 +122,13 @@ export class AchievementsProcessor extends WorkerHost {
       });
 
       if (idempotency.count === 0) {
+        const existing = await tx.processedEvent.findUnique({
+          where: { eventId: uniqueProcessId },
+        });
+        if (existing?.operation != null)
+          throw new Error(
+            'Idempotency key is already used for a point command',
+          );
         this.logger.warn(
           `Event ${uniqueProcessId} already processed. Skipping.`,
         );

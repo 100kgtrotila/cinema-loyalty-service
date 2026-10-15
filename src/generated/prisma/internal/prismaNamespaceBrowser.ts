@@ -100,7 +100,12 @@ export type LoyaltyProfileScalarFieldEnum = (typeof LoyaltyProfileScalarFieldEnu
 
 export const ProcessedEventScalarFieldEnum = {
   eventId: 'eventId',
-  processedAt: 'processedAt'
+  processedAt: 'processedAt',
+  operation: 'operation',
+  userId: 'userId',
+  orderId: 'orderId',
+  amount: 'amount',
+  balanceAfter: 'balanceAfter'
 } as const
 
 export type ProcessedEventScalarFieldEnum = (typeof ProcessedEventScalarFieldEnum)[keyof typeof ProcessedEventScalarFieldEnum]
@@ -144,6 +149,9 @@ export const OutboxEventScalarFieldEnum = {
   maxAttempts: 'maxAttempts',
   error: 'error',
   publishedAt: 'publishedAt',
+  leaseToken: 'leaseToken',
+  leaseExpiresAt: 'leaseExpiresAt',
+  nextAttemptAt: 'nextAttemptAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

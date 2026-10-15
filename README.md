@@ -230,6 +230,28 @@ Internal/admin gRPC calls are protected with metadata:
 x-api-key: <INTERNAL_API_KEY>
 ```
 
+`DeductPoints` and `RefundPoints` bind a successful idempotency key to the
+operation, UUID user/order and positive int32 amount. The key is case sensitive,
+non-empty and at most 128 characters; UUID casing is normalized. A matching retry
+returns the original committed `balanceAfter`, even after later balance changes.
+A different request using that key returns `success=false` with an idempotency
+conflict and no effect. Profile, ledger and request/result marker commit together.
+Business rejections without an effect (for example insufficient balance) do not
+reserve a key and can be retried after circumstances change.
+
+The existing `processed_events` key namespace remains global. Older/generic
+markers lack request/result metadata: RPC replay returns `success=false` with
+`reconciliation required`, rather than inferring a result or executing again.
+The additive migration leaves these rows unchanged. Upgrade all RPC instances
+before relying on payload binding; old instances ignore the added metadata.
+Do not change the key to replay an ambiguous legacy operation without reconciliation.
+
+Refund continues to credit the supplied amount without verifying a linked debit.
+Different keys are different commands, including for the same order. Full/partial
+refund limits and the coordinator's policy for an unknown deduct outcome require
+separate agreement. A repeated debit after compensation replays its original
+success; it does not create a new debit or restart checkout by itself.
+
 ## RabbitMQ Events
 
 | Queue / Event | Direction | Handler | Purpose |
@@ -346,6 +368,26 @@ REDIS_PASSWORD=redis_password
 
 JWT_SECRET=change-me
 ```
+
+RabbitMQ outbox attempts are counted when a row is claimed, including attempts
+interrupted by a crash. Each claim receives a unique token and a PostgreSQL-timed
+lease; expired claims retry after exponential backoff (5–60 seconds), and the
+row's `maxAttempts` budget ends in `FAILED`. The lease must exceed the publish
+timeout. Up to 50 rows are processed per tick, in immediately runnable waves
+bounded by `OUTBOX_PUBLISH_CONCURRENCY` (1–50). A timeout ends the local wait;
+the underlying send may still complete. Delivery remains at least once.
+
+Tier notifications retain their JSON shape. `upgradedAt` comes from the persisted
+outbox creation time, and AMQP `messageId` carries the stable outbox ID. Receivers
+need persistent deduplication to avoid repeated side effects.
+
+For the lease migration, stop **all old publisher instances** before starting the
+new publisher. Apply the additive migration, inspect legacy `PROCESSING` rows
+with no token/lease, and reconcile explicitly selected IDs against downstream
+effects. The old in-flight attempt was not counted: an operator-approved retry
+must account for it and respect `maxAttempts`, or mark the row `FAILED` for
+investigation. There is no automatic legacy replay. Old publishers must not run
+alongside the new version because their completion updates ignore ownership.
 
 ## Local Setup
 

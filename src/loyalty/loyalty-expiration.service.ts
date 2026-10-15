@@ -15,6 +15,11 @@ import { ClientProxy } from '@nestjs/microservices';
 import { RefundPointsResponse } from './interfaces/loyalty-response.interface';
 import { PointsTransactionType } from './events/points-transaction-type.enum';
 import {
+  parsePointCommand,
+  replayPointCommand,
+  claimPointCommand,
+} from './point-command-idempotency';
+import {
   ERROR_MESSAGES,
   TRANSACTION_DESCRIPTIONS,
 } from './constants/loyalty.constants';
@@ -240,23 +245,24 @@ export class LoyaltyExpirationService {
     orderId: string,
     idempotencyKey: string,
   ): Promise<RefundPointsResponse> {
+    const command = parsePointCommand({
+      operation: 'REFUND',
+      userId,
+      amount,
+      orderId,
+      idempotencyKey,
+    });
+    if (!command)
+      return {
+        success: false,
+        balanceAfter: 0,
+        errorMessage: ERROR_MESSAGES.INVALID_POINT_COMMAND,
+      };
     try {
       return await withTransactionRetry(this.prisma, async (trx) => {
-        const profileLocked = await lockLoyaltyProfile(trx, userId);
-        const alreadyProcessed = await trx.processedEvent.findUnique({
-          where: { eventId: idempotencyKey },
-        });
-
-        if (alreadyProcessed) {
-          const profile = await trx.loyaltyProfile.findUnique({
-            where: { userId },
-          });
-          return {
-            success: true,
-            balanceAfter: profile?.balance || 0,
-            errorMessage: '',
-          };
-        }
+        const profileLocked = await lockLoyaltyProfile(trx, command.userId);
+        const replay = await replayPointCommand(trx, command);
+        if (replay) return replay;
 
         const profile = profileLocked
           ? await trx.loyaltyProfile.findUnique({ where: { userId } })
@@ -269,6 +275,8 @@ export class LoyaltyExpirationService {
           };
 
         const newBalance = profile.balance + amount;
+        const racedReplay = await claimPointCommand(trx, command, newBalance);
+        if (racedReplay) return racedReplay;
 
         await trx.loyaltyProfile.update({
           where: { userId },
@@ -284,9 +292,6 @@ export class LoyaltyExpirationService {
             orderId,
             description: `Refund for failed order ${orderId}`,
           },
-        });
-        await trx.processedEvent.create({
-          data: { eventId: idempotencyKey },
         });
 
         return { success: true, balanceAfter: newBalance, errorMessage: '' };

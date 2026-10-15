@@ -20,40 +20,92 @@ export type ProcessedEventModel = runtime.Types.Result.DefaultSelection<Prisma.$
 
 export type AggregateProcessedEvent = {
   _count: ProcessedEventCountAggregateOutputType | null
+  _avg: ProcessedEventAvgAggregateOutputType | null
+  _sum: ProcessedEventSumAggregateOutputType | null
   _min: ProcessedEventMinAggregateOutputType | null
   _max: ProcessedEventMaxAggregateOutputType | null
+}
+
+export type ProcessedEventAvgAggregateOutputType = {
+  amount: number | null
+  balanceAfter: number | null
+}
+
+export type ProcessedEventSumAggregateOutputType = {
+  amount: number | null
+  balanceAfter: number | null
 }
 
 export type ProcessedEventMinAggregateOutputType = {
   eventId: string | null
   processedAt: Date | null
+  operation: string | null
+  userId: string | null
+  orderId: string | null
+  amount: number | null
+  balanceAfter: number | null
 }
 
 export type ProcessedEventMaxAggregateOutputType = {
   eventId: string | null
   processedAt: Date | null
+  operation: string | null
+  userId: string | null
+  orderId: string | null
+  amount: number | null
+  balanceAfter: number | null
 }
 
 export type ProcessedEventCountAggregateOutputType = {
   eventId: number
   processedAt: number
+  operation: number
+  userId: number
+  orderId: number
+  amount: number
+  balanceAfter: number
   _all: number
 }
 
 
+export type ProcessedEventAvgAggregateInputType = {
+  amount?: true
+  balanceAfter?: true
+}
+
+export type ProcessedEventSumAggregateInputType = {
+  amount?: true
+  balanceAfter?: true
+}
+
 export type ProcessedEventMinAggregateInputType = {
   eventId?: true
   processedAt?: true
+  operation?: true
+  userId?: true
+  orderId?: true
+  amount?: true
+  balanceAfter?: true
 }
 
 export type ProcessedEventMaxAggregateInputType = {
   eventId?: true
   processedAt?: true
+  operation?: true
+  userId?: true
+  orderId?: true
+  amount?: true
+  balanceAfter?: true
 }
 
 export type ProcessedEventCountAggregateInputType = {
   eventId?: true
   processedAt?: true
+  operation?: true
+  userId?: true
+  orderId?: true
+  amount?: true
+  balanceAfter?: true
   _all?: true
 }
 
@@ -64,43 +116,55 @@ export type ProcessedEventAggregateArgs<ExtArgs extends runtime.Types.Extensions
   where?: Prisma.ProcessedEventWhereInput
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-   * 
+   *
    * Determine the order of ProcessedEvents to fetch.
    */
   orderBy?: Prisma.ProcessedEventOrderByWithRelationInput | Prisma.ProcessedEventOrderByWithRelationInput[]
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-   * 
+   *
    * Sets the start position
    */
   cursor?: Prisma.ProcessedEventWhereUniqueInput
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-   * 
+   *
    * Take `±n` ProcessedEvents from the position of the cursor.
    */
   take?: number
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-   * 
+   *
    * Skip the first `n` ProcessedEvents.
    */
   skip?: number
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-   * 
+   *
    * Count returned ProcessedEvents
   **/
   _count?: true | ProcessedEventCountAggregateInputType
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-   * 
+   *
+   * Select which fields to average
+  **/
+  _avg?: ProcessedEventAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   *
+   * Select which fields to sum
+  **/
+  _sum?: ProcessedEventSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   *
    * Select which fields to find the minimum value
   **/
   _min?: ProcessedEventMinAggregateInputType
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-   * 
+   *
    * Select which fields to find the maximum value
   **/
   _max?: ProcessedEventMaxAggregateInputType
@@ -125,6 +189,8 @@ export type ProcessedEventGroupByArgs<ExtArgs extends runtime.Types.Extensions.I
   take?: number
   skip?: number
   _count?: ProcessedEventCountAggregateInputType | true
+  _avg?: ProcessedEventAvgAggregateInputType
+  _sum?: ProcessedEventSumAggregateInputType
   _min?: ProcessedEventMinAggregateInputType
   _max?: ProcessedEventMaxAggregateInputType
 }
@@ -132,7 +198,14 @@ export type ProcessedEventGroupByArgs<ExtArgs extends runtime.Types.Extensions.I
 export type ProcessedEventGroupByOutputType = {
   eventId: string
   processedAt: Date
+  operation: string | null
+  userId: string | null
+  orderId: string | null
+  amount: number | null
+  balanceAfter: number | null
   _count: ProcessedEventCountAggregateOutputType | null
+  _avg: ProcessedEventAvgAggregateOutputType | null
+  _sum: ProcessedEventSumAggregateOutputType | null
   _min: ProcessedEventMinAggregateOutputType | null
   _max: ProcessedEventMaxAggregateOutputType | null
 }
@@ -158,11 +231,21 @@ export type ProcessedEventWhereInput = {
   NOT?: Prisma.ProcessedEventWhereInput | Prisma.ProcessedEventWhereInput[]
   eventId?: Prisma.StringFilter<"ProcessedEvent"> | string
   processedAt?: Prisma.DateTimeFilter<"ProcessedEvent"> | Date | string
+  operation?: Prisma.StringNullableFilter<"ProcessedEvent"> | string | null
+  userId?: Prisma.UuidNullableFilter<"ProcessedEvent"> | string | null
+  orderId?: Prisma.UuidNullableFilter<"ProcessedEvent"> | string | null
+  amount?: Prisma.IntNullableFilter<"ProcessedEvent"> | number | null
+  balanceAfter?: Prisma.IntNullableFilter<"ProcessedEvent"> | number | null
 }
 
 export type ProcessedEventOrderByWithRelationInput = {
   eventId?: Prisma.SortOrder
   processedAt?: Prisma.SortOrder
+  operation?: Prisma.SortOrderInput | Prisma.SortOrder
+  userId?: Prisma.SortOrderInput | Prisma.SortOrder
+  orderId?: Prisma.SortOrderInput | Prisma.SortOrder
+  amount?: Prisma.SortOrderInput | Prisma.SortOrder
+  balanceAfter?: Prisma.SortOrderInput | Prisma.SortOrder
 }
 
 export type ProcessedEventWhereUniqueInput = Prisma.AtLeast<{
@@ -171,14 +254,26 @@ export type ProcessedEventWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.ProcessedEventWhereInput[]
   NOT?: Prisma.ProcessedEventWhereInput | Prisma.ProcessedEventWhereInput[]
   processedAt?: Prisma.DateTimeFilter<"ProcessedEvent"> | Date | string
+  operation?: Prisma.StringNullableFilter<"ProcessedEvent"> | string | null
+  userId?: Prisma.UuidNullableFilter<"ProcessedEvent"> | string | null
+  orderId?: Prisma.UuidNullableFilter<"ProcessedEvent"> | string | null
+  amount?: Prisma.IntNullableFilter<"ProcessedEvent"> | number | null
+  balanceAfter?: Prisma.IntNullableFilter<"ProcessedEvent"> | number | null
 }, "eventId">
 
 export type ProcessedEventOrderByWithAggregationInput = {
   eventId?: Prisma.SortOrder
   processedAt?: Prisma.SortOrder
+  operation?: Prisma.SortOrderInput | Prisma.SortOrder
+  userId?: Prisma.SortOrderInput | Prisma.SortOrder
+  orderId?: Prisma.SortOrderInput | Prisma.SortOrder
+  amount?: Prisma.SortOrderInput | Prisma.SortOrder
+  balanceAfter?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.ProcessedEventCountOrderByAggregateInput
+  _avg?: Prisma.ProcessedEventAvgOrderByAggregateInput
   _max?: Prisma.ProcessedEventMaxOrderByAggregateInput
   _min?: Prisma.ProcessedEventMinOrderByAggregateInput
+  _sum?: Prisma.ProcessedEventSumOrderByAggregateInput
 }
 
 export type ProcessedEventScalarWhereWithAggregatesInput = {
@@ -187,56 +282,129 @@ export type ProcessedEventScalarWhereWithAggregatesInput = {
   NOT?: Prisma.ProcessedEventScalarWhereWithAggregatesInput | Prisma.ProcessedEventScalarWhereWithAggregatesInput[]
   eventId?: Prisma.StringWithAggregatesFilter<"ProcessedEvent"> | string
   processedAt?: Prisma.DateTimeWithAggregatesFilter<"ProcessedEvent"> | Date | string
+  operation?: Prisma.StringNullableWithAggregatesFilter<"ProcessedEvent"> | string | null
+  userId?: Prisma.UuidNullableWithAggregatesFilter<"ProcessedEvent"> | string | null
+  orderId?: Prisma.UuidNullableWithAggregatesFilter<"ProcessedEvent"> | string | null
+  amount?: Prisma.IntNullableWithAggregatesFilter<"ProcessedEvent"> | number | null
+  balanceAfter?: Prisma.IntNullableWithAggregatesFilter<"ProcessedEvent"> | number | null
 }
 
 export type ProcessedEventCreateInput = {
   eventId: string
   processedAt?: Date | string
+  operation?: string | null
+  userId?: string | null
+  orderId?: string | null
+  amount?: number | null
+  balanceAfter?: number | null
 }
 
 export type ProcessedEventUncheckedCreateInput = {
   eventId: string
   processedAt?: Date | string
+  operation?: string | null
+  userId?: string | null
+  orderId?: string | null
+  amount?: number | null
+  balanceAfter?: number | null
 }
 
 export type ProcessedEventUpdateInput = {
   eventId?: Prisma.StringFieldUpdateOperationsInput | string
   processedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  operation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  balanceAfter?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type ProcessedEventUncheckedUpdateInput = {
   eventId?: Prisma.StringFieldUpdateOperationsInput | string
   processedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  operation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  balanceAfter?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type ProcessedEventCreateManyInput = {
   eventId: string
   processedAt?: Date | string
+  operation?: string | null
+  userId?: string | null
+  orderId?: string | null
+  amount?: number | null
+  balanceAfter?: number | null
 }
 
 export type ProcessedEventUpdateManyMutationInput = {
   eventId?: Prisma.StringFieldUpdateOperationsInput | string
   processedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  operation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  balanceAfter?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type ProcessedEventUncheckedUpdateManyInput = {
   eventId?: Prisma.StringFieldUpdateOperationsInput | string
   processedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  operation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  balanceAfter?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type ProcessedEventCountOrderByAggregateInput = {
   eventId?: Prisma.SortOrder
   processedAt?: Prisma.SortOrder
+  operation?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
+  orderId?: Prisma.SortOrder
+  amount?: Prisma.SortOrder
+  balanceAfter?: Prisma.SortOrder
+}
+
+export type ProcessedEventAvgOrderByAggregateInput = {
+  amount?: Prisma.SortOrder
+  balanceAfter?: Prisma.SortOrder
 }
 
 export type ProcessedEventMaxOrderByAggregateInput = {
   eventId?: Prisma.SortOrder
   processedAt?: Prisma.SortOrder
+  operation?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
+  orderId?: Prisma.SortOrder
+  amount?: Prisma.SortOrder
+  balanceAfter?: Prisma.SortOrder
 }
 
 export type ProcessedEventMinOrderByAggregateInput = {
   eventId?: Prisma.SortOrder
   processedAt?: Prisma.SortOrder
+  operation?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
+  orderId?: Prisma.SortOrder
+  amount?: Prisma.SortOrder
+  balanceAfter?: Prisma.SortOrder
+}
+
+export type ProcessedEventSumOrderByAggregateInput = {
+  amount?: Prisma.SortOrder
+  balanceAfter?: Prisma.SortOrder
+}
+
+export type NullableIntFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
 }
 
 
@@ -244,24 +412,44 @@ export type ProcessedEventMinOrderByAggregateInput = {
 export type ProcessedEventSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   eventId?: boolean
   processedAt?: boolean
+  operation?: boolean
+  userId?: boolean
+  orderId?: boolean
+  amount?: boolean
+  balanceAfter?: boolean
 }, ExtArgs["result"]["processedEvent"]>
 
 export type ProcessedEventSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   eventId?: boolean
   processedAt?: boolean
+  operation?: boolean
+  userId?: boolean
+  orderId?: boolean
+  amount?: boolean
+  balanceAfter?: boolean
 }, ExtArgs["result"]["processedEvent"]>
 
 export type ProcessedEventSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   eventId?: boolean
   processedAt?: boolean
+  operation?: boolean
+  userId?: boolean
+  orderId?: boolean
+  amount?: boolean
+  balanceAfter?: boolean
 }, ExtArgs["result"]["processedEvent"]>
 
 export type ProcessedEventSelectScalar = {
   eventId?: boolean
   processedAt?: boolean
+  operation?: boolean
+  userId?: boolean
+  orderId?: boolean
+  amount?: boolean
+  balanceAfter?: boolean
 }
 
-export type ProcessedEventOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"eventId" | "processedAt", ExtArgs["result"]["processedEvent"]>
+export type ProcessedEventOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"eventId" | "processedAt" | "operation" | "userId" | "orderId" | "amount" | "balanceAfter", ExtArgs["result"]["processedEvent"]>
 
 export type $ProcessedEventPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "ProcessedEvent"
@@ -269,6 +457,11 @@ export type $ProcessedEventPayload<ExtArgs extends runtime.Types.Extensions.Inte
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     eventId: string
     processedAt: Date
+    operation: string | null
+    userId: string | null
+    orderId: string | null
+    amount: number | null
+    balanceAfter: number | null
   }, ExtArgs["result"]["processedEvent"]>
   composites: {}
 }
@@ -348,13 +541,13 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    * @example
    * // Get all ProcessedEvents
    * const processedEvents = await prisma.processedEvent.findMany()
-   * 
+   *
    * // Get first 10 ProcessedEvents
    * const processedEvents = await prisma.processedEvent.findMany({ take: 10 })
-   * 
+   *
    * // Only select the `eventId`
    * const processedEventWithEventIdOnly = await prisma.processedEvent.findMany({ select: { eventId: true } })
-   * 
+   *
    */
   findMany<T extends ProcessedEventFindManyArgs>(args?: Prisma.SelectSubset<T, ProcessedEventFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProcessedEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
 
@@ -368,7 +561,7 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    *     // ... data to create a ProcessedEvent
    *   }
    * })
-   * 
+   *
    */
   create<T extends ProcessedEventCreateArgs>(args: Prisma.SelectSubset<T, ProcessedEventCreateArgs<ExtArgs>>): Prisma.Prisma__ProcessedEventClient<runtime.Types.Result.GetResult<Prisma.$ProcessedEventPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
 
@@ -382,7 +575,7 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    *     // ... provide data here
    *   ]
    * })
-   *     
+   *
    */
   createMany<T extends ProcessedEventCreateManyArgs>(args?: Prisma.SelectSubset<T, ProcessedEventCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<Prisma.BatchPayload>
 
@@ -396,7 +589,7 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    *     // ... provide data here
    *   ]
    * })
-   * 
+   *
    * // Create many ProcessedEvents and only return the `eventId`
    * const processedEventWithEventIdOnly = await prisma.processedEvent.createManyAndReturn({
    *   select: { eventId: true },
@@ -406,7 +599,7 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    * })
    * Note, that providing `undefined` is treated as the value not being there.
    * Read more here: https://pris.ly/d/null-undefined
-   * 
+   *
    */
   createManyAndReturn<T extends ProcessedEventCreateManyAndReturnArgs>(args?: Prisma.SelectSubset<T, ProcessedEventCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProcessedEventPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
 
@@ -420,7 +613,7 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    *     // ... filter to delete one ProcessedEvent
    *   }
    * })
-   * 
+   *
    */
   delete<T extends ProcessedEventDeleteArgs>(args: Prisma.SelectSubset<T, ProcessedEventDeleteArgs<ExtArgs>>): Prisma.Prisma__ProcessedEventClient<runtime.Types.Result.GetResult<Prisma.$ProcessedEventPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
 
@@ -437,7 +630,7 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    *     // ... provide data here
    *   }
    * })
-   * 
+   *
    */
   update<T extends ProcessedEventUpdateArgs>(args: Prisma.SelectSubset<T, ProcessedEventUpdateArgs<ExtArgs>>): Prisma.Prisma__ProcessedEventClient<runtime.Types.Result.GetResult<Prisma.$ProcessedEventPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
 
@@ -451,7 +644,7 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    *     // ... provide filter here
    *   }
    * })
-   * 
+   *
    */
   deleteMany<T extends ProcessedEventDeleteManyArgs>(args?: Prisma.SelectSubset<T, ProcessedEventDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<Prisma.BatchPayload>
 
@@ -470,7 +663,7 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    *     // ... provide data here
    *   }
    * })
-   * 
+   *
    */
   updateMany<T extends ProcessedEventUpdateManyArgs>(args: Prisma.SelectSubset<T, ProcessedEventUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<Prisma.BatchPayload>
 
@@ -487,7 +680,7 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    *     // ... provide data here
    *   ]
    * })
-   * 
+   *
    * // Update zero or more ProcessedEvents and only return the `eventId`
    * const processedEventWithEventIdOnly = await prisma.processedEvent.updateManyAndReturn({
    *   select: { eventId: true },
@@ -500,7 +693,7 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    * })
    * Note, that providing `undefined` is treated as the value not being there.
    * Read more here: https://pris.ly/d/null-undefined
-   * 
+   *
    */
   updateManyAndReturn<T extends ProcessedEventUpdateManyAndReturnArgs>(args: Prisma.SelectSubset<T, ProcessedEventUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProcessedEventPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
 
@@ -589,7 +782,7 @@ export interface ProcessedEventDelegate<ExtArgs extends runtime.Types.Extensions
    *     _all: true
    *   },
    * })
-   * 
+   *
   **/
   groupBy<
     T extends ProcessedEventGroupByArgs,
@@ -694,6 +887,11 @@ export interface Prisma__ProcessedEventClient<T, Null = never, ExtArgs extends r
 export interface ProcessedEventFieldRefs {
   readonly eventId: Prisma.FieldRef<"ProcessedEvent", 'String'>
   readonly processedAt: Prisma.FieldRef<"ProcessedEvent", 'DateTime'>
+  readonly operation: Prisma.FieldRef<"ProcessedEvent", 'String'>
+  readonly userId: Prisma.FieldRef<"ProcessedEvent", 'String'>
+  readonly orderId: Prisma.FieldRef<"ProcessedEvent", 'String'>
+  readonly amount: Prisma.FieldRef<"ProcessedEvent", 'Int'>
+  readonly balanceAfter: Prisma.FieldRef<"ProcessedEvent", 'Int'>
 }
     
 
@@ -752,31 +950,31 @@ export type ProcessedEventFindFirstArgs<ExtArgs extends runtime.Types.Extensions
   where?: Prisma.ProcessedEventWhereInput
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-   * 
+   *
    * Determine the order of ProcessedEvents to fetch.
    */
   orderBy?: Prisma.ProcessedEventOrderByWithRelationInput | Prisma.ProcessedEventOrderByWithRelationInput[]
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-   * 
+   *
    * Sets the position for searching for ProcessedEvents.
    */
   cursor?: Prisma.ProcessedEventWhereUniqueInput
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-   * 
+   *
    * Take `±n` ProcessedEvents from the position of the cursor.
    */
   take?: number
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-   * 
+   *
    * Skip the first `n` ProcessedEvents.
    */
   skip?: number
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-   * 
+   *
    * Filter by unique combinations of ProcessedEvents.
    */
   distinct?: Prisma.ProcessedEventScalarFieldEnum | Prisma.ProcessedEventScalarFieldEnum[]
@@ -800,31 +998,31 @@ export type ProcessedEventFindFirstOrThrowArgs<ExtArgs extends runtime.Types.Ext
   where?: Prisma.ProcessedEventWhereInput
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-   * 
+   *
    * Determine the order of ProcessedEvents to fetch.
    */
   orderBy?: Prisma.ProcessedEventOrderByWithRelationInput | Prisma.ProcessedEventOrderByWithRelationInput[]
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-   * 
+   *
    * Sets the position for searching for ProcessedEvents.
    */
   cursor?: Prisma.ProcessedEventWhereUniqueInput
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-   * 
+   *
    * Take `±n` ProcessedEvents from the position of the cursor.
    */
   take?: number
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-   * 
+   *
    * Skip the first `n` ProcessedEvents.
    */
   skip?: number
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-   * 
+   *
    * Filter by unique combinations of ProcessedEvents.
    */
   distinct?: Prisma.ProcessedEventScalarFieldEnum | Prisma.ProcessedEventScalarFieldEnum[]
@@ -848,31 +1046,31 @@ export type ProcessedEventFindManyArgs<ExtArgs extends runtime.Types.Extensions.
   where?: Prisma.ProcessedEventWhereInput
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-   * 
+   *
    * Determine the order of ProcessedEvents to fetch.
    */
   orderBy?: Prisma.ProcessedEventOrderByWithRelationInput | Prisma.ProcessedEventOrderByWithRelationInput[]
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-   * 
+   *
    * Sets the position for listing ProcessedEvents.
    */
   cursor?: Prisma.ProcessedEventWhereUniqueInput
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-   * 
+   *
    * Take `±n` ProcessedEvents from the position of the cursor.
    */
   take?: number
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-   * 
+   *
    * Skip the first `n` ProcessedEvents.
    */
   skip?: number
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-   * 
+   *
    * Filter by unique combinations of ProcessedEvents.
    */
   distinct?: Prisma.ProcessedEventScalarFieldEnum | Prisma.ProcessedEventScalarFieldEnum[]
