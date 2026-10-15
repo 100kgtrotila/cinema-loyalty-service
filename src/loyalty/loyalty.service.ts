@@ -258,7 +258,7 @@ export class LoyaltyService {
 
   async processTicketPurchase(msg: TicketPurchasedDto): Promise<void> {
     try {
-      const result = await withTransactionRetry(this.prisma, async (trx) => {
+      await withTransactionRetry(this.prisma, async (trx) => {
         await lockLoyaltyProfile(trx, msg.userId, true);
         const alreadyProcessed = await trx.processedEvent.findUnique({
           where: { eventId: msg.eventId },
@@ -266,7 +266,7 @@ export class LoyaltyService {
 
         if (alreadyProcessed) {
           this.logger.warn(`Event ${msg.eventId} already processed. Skipping.`);
-          return { processed: false, pointsEarned: 0, pointsUsed: 0 };
+          return;
         }
 
         const profile = await trx.loyaltyProfile.findUniqueOrThrow({
@@ -358,36 +358,38 @@ export class LoyaltyService {
           );
         }
 
-        return { processed: true, pointsEarned, pointsUsed };
-      });
-
-      if (!result.processed) return;
-
-      await this.achievementsService.dispatchEvent({
-        eventId: msg.orderId,
-        userId: msg.userId,
-        actionType: AchievementAction.TICKET_PURCHASED,
-        metadata: {
+        const metadata = {
           amount: msg.totalAmount,
-          paidAmount: msg.paidAmount,
-          pointsUsed: result.pointsUsed,
-          eventType: msg.eventType,
-          seatClass: msg.seatClass,
-        },
-      });
-
-      if (msg.seatClass === 'VIP') {
-        await this.achievementsService.dispatchEvent({
-          eventId: `${msg.orderId}_vip`,
-          userId: msg.userId,
-          actionType: AchievementAction.VIP_SEAT_BOUGHT,
-          metadata: {
-            amount: msg.totalAmount,
-            paidAmount: msg.paidAmount,
-            pointsUsed: result.pointsUsed,
+          pointsUsed,
+          ...(msg.paidAmount !== undefined
+            ? { paidAmount: msg.paidAmount }
+            : {}),
+        };
+        await this.achievementsService.saveDispatchIntents(trx, [
+          {
+            eventId: msg.orderId,
+            userId: msg.userId,
+            actionType: AchievementAction.TICKET_PURCHASED,
+            metadata: {
+              ...metadata,
+              eventType: msg.eventType,
+              ...(msg.seatClass !== undefined
+                ? { seatClass: msg.seatClass }
+                : {}),
+            },
           },
-        });
-      }
+          ...(msg.seatClass === 'VIP'
+            ? [
+                {
+                  eventId: `${msg.orderId}_vip`,
+                  userId: msg.userId,
+                  actionType: AchievementAction.VIP_SEAT_BOUGHT,
+                  metadata,
+                },
+              ]
+            : []),
+        ]);
+      });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;

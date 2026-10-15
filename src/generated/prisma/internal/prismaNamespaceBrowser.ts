@@ -56,6 +56,7 @@ export const ModelName = {
   PointsTransaction: 'PointsTransaction',
   UserBonusGrant: 'UserBonusGrant',
   OutboxEvent: 'OutboxEvent',
+  AchievementDispatchIntent: 'AchievementDispatchIntent',
   Achievement: 'Achievement',
   UserAchievement: 'UserAchievement'
 } as const
@@ -148,6 +149,22 @@ export const OutboxEventScalarFieldEnum = {
 } as const
 
 export type OutboxEventScalarFieldEnum = (typeof OutboxEventScalarFieldEnum)[keyof typeof OutboxEventScalarFieldEnum]
+
+
+export const AchievementDispatchIntentScalarFieldEnum = {
+  id: 'id',
+  eventId: 'eventId',
+  userId: 'userId',
+  actionType: 'actionType',
+  payload: 'payload',
+  deliveredAt: 'deliveredAt',
+  attempts: 'attempts',
+  nextAttemptAt: 'nextAttemptAt',
+  error: 'error',
+  createdAt: 'createdAt'
+} as const
+
+export type AchievementDispatchIntentScalarFieldEnum = (typeof AchievementDispatchIntentScalarFieldEnum)[keyof typeof AchievementDispatchIntentScalarFieldEnum]
 
 
 export const AchievementScalarFieldEnum = {

@@ -43,6 +43,11 @@ export type UserBonusGrant = Prisma.UserBonusGrantModel
  */
 export type OutboxEvent = Prisma.OutboxEventModel
 /**
+ * Model AchievementDispatchIntent
+ *
+ */
+export type AchievementDispatchIntent = Prisma.AchievementDispatchIntentModel
+/**
  * Model Achievement
  * 
  */

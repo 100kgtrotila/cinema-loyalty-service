@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { z } from 'zod';
 import { PrismaService } from 'src/prisma/prisma.service';
 import type { Prisma } from 'src/generated/prisma/client';
 import {
@@ -23,7 +24,29 @@ export class AchievementsService {
     private readonly mapper: AchievementMapper,
   ) {}
 
-  async dispatchEvent(event: ActionEvent): Promise<void> {
+  async saveDispatchIntents(
+    tx: Prisma.TransactionClient,
+    events: ActionEvent[],
+  ): Promise<void> {
+    const data = events.map((event) => {
+      const validated = ActionEventSchema.parse(event);
+      const payload = z.json().parse(validated);
+      if (payload === null)
+        throw new Error('Achievement intent payload must be an object');
+      return {
+        eventId: validated.eventId,
+        userId: validated.userId,
+        actionType: validated.actionType,
+        payload,
+      };
+    });
+    await tx.achievementDispatchIntent.createMany({
+      data,
+      skipDuplicates: true,
+    });
+  }
+
+  async dispatchEvent(event: ActionEvent, jobId?: string): Promise<void> {
     const parsed = ActionEventSchema.safeParse(event);
 
     if (!parsed.success) {
@@ -42,7 +65,12 @@ export class AchievementsService {
       );
     }
 
-    const job = await this.queue.add(ACHIEVEMENT_JOB_NAME, validEvent);
+    const client = await this.queue.client;
+    if (client.status !== 'ready')
+      throw new Error('Achievement Redis is unavailable');
+    const job = await this.queue.add(ACHIEVEMENT_JOB_NAME, validEvent, {
+      jobId,
+    });
 
     this.logger.log(
       `Achievement job queued: jobId=${job.id}, queue=${ACHIEVEMENTS_QUEUE}, jobName=${ACHIEVEMENT_JOB_NAME}, eventId=${validEvent.eventId}`,

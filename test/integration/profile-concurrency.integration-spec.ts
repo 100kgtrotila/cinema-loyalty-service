@@ -25,6 +25,10 @@ import { AchievementAction } from 'src/achievements/enums/achievement-action.enu
 import { RpcException } from '@nestjs/microservices';
 import { GrpcStatus } from 'src/common/grpc-status';
 import { withTransactionRetry } from 'src/prisma/profile-transaction';
+import { getQueueToken } from '@nestjs/bullmq';
+import { ACHIEVEMENTS_QUEUE } from 'src/achievements/constants/achievements.constants';
+import { AchievementMapper } from 'src/achievements/mappers/achievement.mapper';
+import { AchievementIntentPublisher } from 'src/achievements/achievement-intent-publisher.service';
 
 describe('Profile concurrency on PostgreSQL', () => {
   let module: TestingModule;
@@ -35,6 +39,10 @@ describe('Profile concurrency on PostgreSQL', () => {
   let achievements: AchievementsProcessor;
   let observer: Pool;
   let userId: string;
+  let publisher: AchievementIntentPublisher;
+  let redisReady = true;
+  let enqueueHangs = false;
+  const queuedIds: string[] = [];
 
   beforeAll(async () => {
     const databaseUrl = process.env.INTEGRATION_DATABASE_URL;
@@ -58,15 +66,36 @@ describe('Profile concurrency on PostgreSQL', () => {
         LoyaltyExpirationService,
         AdminLoyaltyService,
         AchievementsProcessor,
+        AchievementsService,
+        AchievementMapper,
+        AchievementIntentPublisher,
         { provide: INJECTION_TOKENS.RABBITMQ_LOYALTY_CLIENT, useValue: {} },
         {
           provide: ConfigService,
-          useValue: new ConfigService({ DATABASE_URL: databaseUrl }),
+          useValue: new ConfigService({
+            DATABASE_URL: databaseUrl,
+            app: { outboxPublishTimeoutMs: 30 },
+          }),
         },
         { provide: EventEmitter2, useValue: new EventEmitter2() },
         {
-          provide: AchievementsService,
-          useValue: { dispatchEvent: () => Promise.resolve() },
+          provide: getQueueToken(ACHIEVEMENTS_QUEUE),
+          useValue: {
+            get client() {
+              return Promise.resolve({
+                status: redisReady ? 'ready' : 'reconnecting',
+              });
+            },
+            add: (
+              _name: string,
+              _data: unknown,
+              options: { jobId: string },
+            ) => {
+              queuedIds.push(options.jobId);
+              if (enqueueHangs) return new Promise<never>(() => {});
+              return Promise.resolve({ id: options.jobId });
+            },
+          },
         },
       ],
     }).compile();
@@ -75,12 +104,16 @@ describe('Profile concurrency on PostgreSQL', () => {
     expiration = module.get(LoyaltyExpirationService);
     admin = module.get(AdminLoyaltyService);
     achievements = module.get(AchievementsProcessor);
+    publisher = module.get(AchievementIntentPublisher);
     await prisma.$connect();
   });
 
   beforeEach(async () => {
-    await prisma.$executeRaw`TRUNCATE loyalty_profiles, points_transactions, processed_events, outbox_events, user_bonus_grants, achievements, user_achievements CASCADE`;
+    await prisma.$executeRaw`TRUNCATE loyalty_profiles, points_transactions, processed_events, outbox_events, achievement_dispatch_intents, user_bonus_grants, achievements, user_achievements CASCADE`;
     userId = randomUUID();
+    redisReady = true;
+    enqueueHangs = false;
+    queuedIds.length = 0;
     await prisma.loyaltyProfile.create({ data: { userId, balance: 100 } });
   });
 
@@ -161,6 +194,140 @@ describe('Profile concurrency on PostgreSQL', () => {
       orderBy: { createdAt: 'asc' },
     });
   }
+
+  it('commits purchase and both VIP achievement intents once without contacting Redis', async () => {
+    redisReady = false;
+    const event = { ...purchase(100), seatClass: 'VIP' };
+    await overlap(
+      () => loyalty.processTicketPurchase(event),
+      () => loyalty.processTicketPurchase(event),
+    );
+    const intents = await prisma.achievementDispatchIntent.findMany({
+      orderBy: { actionType: 'asc' },
+    });
+    expect(intents).toEqual([
+      expect.objectContaining({
+        eventId: event.orderId,
+        userId,
+        actionType: 'TICKET_PURCHASED',
+        deliveredAt: null,
+      }),
+      expect.objectContaining({
+        eventId: `${event.orderId}_vip`,
+        userId,
+        actionType: 'VIP_SEAT_BOUGHT',
+        deliveredAt: null,
+      }),
+    ]);
+    expect(intents[0].payload).toEqual(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ seatClass: 'VIP', amount: 100 }),
+      }),
+    );
+    expect((await profile()).yearVisits).toBe(1);
+    expect(await ledger()).toHaveLength(1);
+    expect(queuedIds).toHaveLength(0);
+  });
+
+  it('rolls back purchase, ledger, tier outbox and dedupe if saving an intent fails', async () => {
+    await prisma.loyaltyProfile.update({
+      where: { userId },
+      data: { yearPoints: 1999 },
+    });
+    const before = await profile();
+    await observer.query(`CREATE FUNCTION reject_intent() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'injected intent failure'; END $$`);
+    await observer.query(
+      'CREATE TRIGGER reject_intent AFTER INSERT ON achievement_dispatch_intents FOR EACH ROW EXECUTE FUNCTION reject_intent()',
+    );
+    try {
+      await expect(
+        loyalty.processTicketPurchase(purchase(10)),
+      ).rejects.toThrow();
+      expect(await profile()).toEqual(before);
+      expect(await ledger()).toHaveLength(0);
+      expect(await prisma.outboxEvent.count()).toBe(0);
+      expect(await prisma.processedEvent.count()).toBe(0);
+      expect(await prisma.achievementDispatchIntent.count()).toBe(0);
+    } finally {
+      await observer.query(
+        'DROP TRIGGER reject_intent ON achievement_dispatch_intents',
+      );
+      await observer.query('DROP FUNCTION reject_intent()');
+    }
+  });
+
+  it('keeps failed delivery pending and retries with a stable BullMQ job id', async () => {
+    await loyalty.processTicketPurchase(purchase(100));
+    redisReady = false;
+    await publisher.publishPendingIntents();
+    const pending = await prisma.achievementDispatchIntent.findFirstOrThrow();
+    expect(pending).toEqual(
+      expect.objectContaining({
+        deliveredAt: null,
+        attempts: 1,
+        error: 'Achievement Redis is unavailable',
+      }),
+    );
+    expect(pending.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());
+    expect(queuedIds).toHaveLength(0);
+    redisReady = true;
+    // Simulate queue acceptance followed by failure to record delivery in PostgreSQL.
+    await observer.query(`CREATE FUNCTION reject_delivery() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW.delivered_at IS NOT NULL THEN RAISE EXCEPTION 'injected delivery mark failure'; END IF; RETURN NEW; END $$`);
+    await observer.query(
+      'CREATE TRIGGER reject_delivery BEFORE UPDATE ON achievement_dispatch_intents FOR EACH ROW EXECUTE FUNCTION reject_delivery()',
+    );
+    try {
+      await prisma.achievementDispatchIntent.update({
+        where: { id: pending.id },
+        data: { nextAttemptAt: new Date(0) },
+      });
+      await publisher.publishPendingIntents();
+      expect(
+        (
+          await prisma.achievementDispatchIntent.findUniqueOrThrow({
+            where: { id: pending.id },
+          })
+        ).deliveredAt,
+      ).toBeNull();
+    } finally {
+      await observer.query(
+        'DROP TRIGGER reject_delivery ON achievement_dispatch_intents',
+      );
+      await observer.query('DROP FUNCTION reject_delivery()');
+    }
+    await prisma.achievementDispatchIntent.update({
+      where: { id: pending.id },
+      data: { nextAttemptAt: new Date(0) },
+    });
+    await publisher.publishPendingIntents();
+    expect(queuedIds).toEqual([pending.id, pending.id]);
+    expect(
+      await prisma.achievementDispatchIntent.findUniqueOrThrow({
+        where: { id: pending.id },
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        deliveredAt: expect.any(Date),
+        attempts: 3,
+        error: null,
+      }),
+    );
+  });
+
+  it('leaves an enqueue timeout pending instead of marking it delivered', async () => {
+    await loyalty.processTicketPurchase(purchase(100));
+    enqueueHangs = true;
+    await publisher.publishPendingIntents();
+    expect(await prisma.achievementDispatchIntent.findFirstOrThrow()).toEqual(
+      expect.objectContaining({
+        deliveredAt: null,
+        attempts: 1,
+        error: expect.stringContaining('timed out'),
+      }),
+    );
+  });
 
   it('allows only one of two overlapping 80-point deductions from 100', async () => {
     const results = await overlap(

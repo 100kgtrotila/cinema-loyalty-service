@@ -8,6 +8,7 @@ import { AchievementsController } from './achievements.controller';
 import { ACHIEVEMENTS_QUEUE } from './constants/achievements.constants';
 import { LoyaltyModule } from 'src/loyalty/loyalty.module';
 import { AchievementMapper } from './mappers/achievement.mapper';
+import { AchievementIntentPublisher } from './achievement-intent-publisher.service';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AchievementMapper } from './mappers/achievement.mapper';
     AdminAchievementsService,
     AchievementsProcessor,
     AchievementMapper,
+    AchievementIntentPublisher,
   ],
   exports: [AchievementsService, AdminAchievementsService],
 })
