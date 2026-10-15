@@ -381,6 +381,16 @@ bun run build
 bun run test
 ```
 
+Concurrency tests use real PostgreSQL 16 and require a running Docker Engine:
+
+```bash
+bun run test:integration
+```
+
+The runner creates a disposable Compose project with a random loopback port, applies the existing migrations, runs Jest, and removes the containers and data afterwards. It supplies its own database URL. The normal `bun run test` suite needs no external services. PR CI runs both suites.
+
+See [profile concurrency and integration notes](docs/profile-concurrency.md) for the writer audit, lock discipline, regression coverage, and monolith compatibility findings.
+
 After startup, the service runs:
 
 | Runtime Part | Source |
@@ -400,6 +410,7 @@ After startup, the service runs:
 | `bun run start:prod` | Start compiled app with Node.js from `dist/main.js` |
 | `bun run lint` | Run ESLint without modifying files |
 | `bun run test` | Run Jest unit and regression tests |
+| `bun run test:integration` | Run concurrency integration tests on disposable PostgreSQL 16 (Docker required) |
 | `bun run test:cov` | Run Jest tests with coverage |
 | `bun run test:e2e` | Run Jest e2e tests |
 | `bun run buf:lint` | Lint proto files |

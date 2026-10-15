@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  lockLoyaltyProfile,
+  withTransactionRetry,
+} from '../prisma/profile-transaction';
 import { AdminTransactionType } from '../loyalty/constants/admin-loyalty.constants';
 import { LoyaltyCalculatorService } from '../loyalty/loyalty-calculator.service';
 import { OutboxEventType, AggregateType } from '../loyalty/enums/loyalty.enums';
@@ -71,11 +75,10 @@ export class AdminLoyaltyService {
     }
 
     try {
-      const result = await this.prisma.$transaction(async (tx) => {
-        const profile = await tx.loyaltyProfile.upsert({
+      const result = await withTransactionRetry(this.prisma, async (tx) => {
+        await lockLoyaltyProfile(tx, userId, true);
+        const profile = await tx.loyaltyProfile.findUniqueOrThrow({
           where: { userId },
-          create: { userId },
-          update: {},
         });
 
         if (profile.balance + points < 0) {
@@ -206,46 +209,46 @@ export class AdminLoyaltyService {
   }
 
   async grantVipStatusGrpc(userId: string, adminId: string, reason: string) {
-    const profile = await this.prisma.loyaltyProfile.upsert({
-      where: { userId },
-      create: { userId },
-      update: {},
-    });
+    const updatedProfile = await withTransactionRetry(
+      this.prisma,
+      async (tx) => {
+        await lockLoyaltyProfile(tx, userId, true);
+        const profile = await tx.loyaltyProfile.findUniqueOrThrow({
+          where: { userId },
+        });
+        if (profile.tier === 'GOLD') {
+          throw new RpcException({
+            code: GrpcStatus.ALREADY_EXISTS,
+            message: 'User is already a VIP (GOLD tier).',
+          });
+        }
+        const updated = await tx.loyaltyProfile.update({
+          where: { userId },
+          data: { tier: 'GOLD' },
+        });
 
-    if (profile.tier === 'GOLD') {
-      throw new RpcException({
-        code: GrpcStatus.ALREADY_EXISTS,
-        message: 'User is already a VIP (GOLD tier).',
-      });
-    }
+        await tx.pointsTransaction.create({
+          data: {
+            userId,
+            type: AdminTransactionType.ADDITION,
+            points: 0,
+            balanceAfter: updated.balance,
+            description: `[Admin: ${adminId}] VIP Status Granted. Reason: ${reason}`,
+          },
+        });
 
-    const updatedProfile = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.loyaltyProfile.update({
-        where: { userId },
-        data: { tier: 'GOLD' },
-      });
+        await tx.outboxEvent.create({
+          data: {
+            type: OutboxEventType.TIER_UPGRADED,
+            payload: { userId, oldTier: profile.tier, newTier: 'GOLD' },
+            aggregateType: AggregateType.LOYALTY_PROFILE,
+            aggregateId: userId,
+          },
+        });
 
-      await tx.pointsTransaction.create({
-        data: {
-          userId,
-          type: AdminTransactionType.ADDITION,
-          points: 0,
-          balanceAfter: updated.balance,
-          description: `[Admin: ${adminId}] VIP Status Granted. Reason: ${reason}`,
-        },
-      });
-
-      await tx.outboxEvent.create({
-        data: {
-          type: OutboxEventType.TIER_UPGRADED,
-          payload: { userId, oldTier: profile.tier, newTier: 'GOLD' },
-          aggregateType: AggregateType.LOYALTY_PROFILE,
-          aggregateId: userId,
-        },
-      });
-
-      return updated;
-    });
+        return updated;
+      },
+    );
 
     this.logger.log(`[${userId}] VIP Status granted by admin ${adminId}`);
 

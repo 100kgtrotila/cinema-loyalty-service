@@ -1,6 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
+  lockLoyaltyProfile,
+  withTransactionRetry,
+} from 'src/prisma/profile-transaction';
+import {
   BATCH_SIZE,
   INJECTION_TOKENS,
   NOTIFY_DAYS_BEFORE,
@@ -98,7 +102,7 @@ export class LoyaltyExpirationService {
     do {
       const batch = await this.prisma.loyaltyProfile.findMany({
         where: { balance: { gt: 0 }, balanceExpiresAt: { lte: now } },
-        select: { id: true, userId: true, balance: true },
+        select: { id: true, userId: true },
         take: BATCH_SIZE,
         ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
         orderBy: { id: 'desc' },
@@ -108,23 +112,37 @@ export class LoyaltyExpirationService {
 
       cursor = batch[batch.length - 1]?.id;
 
-      await this.prisma.$transaction([
-        this.prisma.loyaltyProfile.updateMany({
-          where: { id: { in: batch.map((p) => p.id) } },
-          data: { balance: 0 },
-        }),
-        this.prisma.pointsTransaction.createMany({
-          data: batch.map((p) => ({
-            userId: p.userId,
-            type: PointsTransactionType.EXPIRE,
-            points: -p.balance,
-            balanceAfter: 0,
-            description: TRANSACTION_DESCRIPTIONS.POINTS_EXPIRED,
-          })),
-        }),
-      ]);
-
-      total += batch.length;
+      for (const candidate of batch) {
+        const expired = await withTransactionRetry(this.prisma, async (tx) => {
+          if (!(await lockLoyaltyProfile(tx, candidate.userId))) return false;
+          const profile = await tx.loyaltyProfile.findUnique({
+            where: { userId: candidate.userId },
+          });
+          if (
+            !profile ||
+            profile.balance <= 0 ||
+            !profile.balanceExpiresAt ||
+            profile.balanceExpiresAt > now
+          ) {
+            return false;
+          }
+          await tx.loyaltyProfile.update({
+            where: { id: profile.id },
+            data: { balance: 0 },
+          });
+          await tx.pointsTransaction.create({
+            data: {
+              userId: profile.userId,
+              type: PointsTransactionType.EXPIRE,
+              points: -profile.balance,
+              balanceAfter: 0,
+              description: TRANSACTION_DESCRIPTIONS.POINTS_EXPIRED,
+            },
+          });
+          return true;
+        });
+        if (expired) total += 1;
+      }
 
       if (onProgress) await onProgress(total);
 
@@ -149,7 +167,7 @@ export class LoyaltyExpirationService {
         where: {
           OR: [{ yearPoints: { gt: 0 } }, { yearVisits: { gt: 0 } }],
         },
-        select: { id: true },
+        select: { id: true, userId: true },
         take: BATCH_SIZE,
         ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
         orderBy: { id: 'desc' },
@@ -158,13 +176,15 @@ export class LoyaltyExpirationService {
       if (batch.length === 0) break;
       cursor = batch[batch.length - 1]?.id;
 
-      await this.prisma.loyaltyProfile.updateMany({
-        where: { id: { in: batch.map((p) => p.id) } },
-        data: {
-          yearPoints: 0,
-          yearVisits: 0,
-        },
-      });
+      for (const profile of batch) {
+        await withTransactionRetry(this.prisma, async (tx) => {
+          if (!(await lockLoyaltyProfile(tx, profile.userId))) return;
+          await tx.loyaltyProfile.updateMany({
+            where: { id: profile.id },
+            data: { yearPoints: 0, yearVisits: 0 },
+          });
+        });
+      }
 
       total += batch.length;
       if (onProgress) await onProgress(total);
@@ -218,7 +238,8 @@ export class LoyaltyExpirationService {
     idempotencyKey: string,
   ): Promise<RefundPointsResponse> {
     try {
-      return await this.prisma.$transaction(async (trx) => {
+      return await withTransactionRetry(this.prisma, async (trx) => {
+        const profileLocked = await lockLoyaltyProfile(trx, userId);
         const alreadyProcessed = await trx.processedEvent.findUnique({
           where: { eventId: idempotencyKey },
         });
@@ -234,9 +255,9 @@ export class LoyaltyExpirationService {
           };
         }
 
-        const profile = await trx.loyaltyProfile.findUnique({
-          where: { userId },
-        });
+        const profile = profileLocked
+          ? await trx.loyaltyProfile.findUnique({ where: { userId } })
+          : null;
         if (!profile)
           return {
             success: false,

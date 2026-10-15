@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  lockLoyaltyProfile,
+  withTransactionRetry,
+} from '../prisma/profile-transaction';
 import { Tier } from 'src/generated/prisma/enums';
 import { Prisma } from 'src/generated/prisma/client';
 import { TicketPurchasedDto } from './dto/ticked-purchased.dto';
@@ -14,7 +18,6 @@ import {
   RollbackGoldUpgradeResponse,
   UseGoldUpgradeResponse,
 } from './interfaces/loyalty-response.interface';
-import { LoyaltyProfileSnapshot } from './interfaces/loyalty-profile.inteface';
 import { LoyaltyMapper } from 'src/utils/loyalty.mapper';
 import { LoyaltyCalculatorService } from './loyalty-calculator.service';
 import { PointsTransactionType } from './events/points-transaction-type.enum';
@@ -43,6 +46,7 @@ type LoyaltyTransactionClient = Parameters<
 type BirthdayGrantResult =
   | { status: 'granted'; points: number; balanceAfter: number }
   | { status: 'already_granted' }
+  | { status: 'not_birthday' }
   | { status: 'profile_not_found' };
 
 @Injectable()
@@ -116,7 +120,8 @@ export class LoyaltyService {
     }
 
     try {
-      const result = await this.prisma.$transaction(async (trx) => {
+      const result = await withTransactionRetry(this.prisma, async (trx) => {
+        const profileLocked = await lockLoyaltyProfile(trx, userId);
         const alreadyProcessed = await trx.processedEvent.findUnique({
           where: { eventId: idempotencyKey },
         });
@@ -132,9 +137,9 @@ export class LoyaltyService {
           };
         }
 
-        const profile = await trx.loyaltyProfile.findUnique({
-          where: { userId },
-        });
+        const profile = profileLocked
+          ? await trx.loyaltyProfile.findUnique({ where: { userId } })
+          : null;
 
         if (!profile) {
           throw new RpcException({
@@ -253,7 +258,8 @@ export class LoyaltyService {
 
   async processTicketPurchase(msg: TicketPurchasedDto): Promise<void> {
     try {
-      const result = await this.prisma.$transaction(async (trx) => {
+      const result = await withTransactionRetry(this.prisma, async (trx) => {
+        await lockLoyaltyProfile(trx, msg.userId, true);
         const alreadyProcessed = await trx.processedEvent.findUnique({
           where: { eventId: msg.eventId },
         });
@@ -263,7 +269,9 @@ export class LoyaltyService {
           return { processed: false, pointsEarned: 0, pointsUsed: 0 };
         }
 
-        const profile = await this.findOrCreateProfile(msg.userId, trx);
+        const profile = await trx.loyaltyProfile.findUniqueOrThrow({
+          where: { userId: msg.userId },
+        });
         const pointsUsed = await this.resolvePointsUsedForOrder(msg, trx);
         const multiplier = this.calculator.resolveMultiplier(
           profile,
@@ -406,14 +414,11 @@ export class LoyaltyService {
     const isBirthdayToday = isSameUtcMonthDay(birthdayDate, now);
 
     try {
-      const result = await this.prisma.$transaction(async (trx) => {
-        await trx.loyaltyProfile.upsert({
+      const result = await withTransactionRetry(this.prisma, async (trx) => {
+        await lockLoyaltyProfile(trx, msg.userId, true);
+        await trx.loyaltyProfile.update({
           where: { userId: msg.userId },
-          create: {
-            userId: msg.userId,
-            birthdayDate,
-          },
-          update: {
+          data: {
             birthdayDate,
           },
         });
@@ -622,9 +627,12 @@ export class LoyaltyService {
     now: Date,
   ): Promise<BirthdayGrantResult> {
     try {
-      return await this.prisma.$transaction((trx) =>
-        this.grantBirthdayBonusInTransaction(trx, userId, now),
-      );
+      return await withTransactionRetry(this.prisma, async (trx) => {
+        if (!(await lockLoyaltyProfile(trx, userId))) {
+          return { status: 'profile_not_found' as const };
+        }
+        return this.grantBirthdayBonusInTransaction(trx, userId, now);
+      });
     } catch (error: unknown) {
       if (this.isUniqueConstraintError(error)) {
         return { status: 'already_granted' };
@@ -661,6 +669,13 @@ export class LoyaltyService {
 
     if (!profile) {
       return { status: 'profile_not_found' };
+    }
+
+    if (
+      !profile.birthdayDate ||
+      !isSameUtcMonthDay(profile.birthdayDate, now)
+    ) {
+      return { status: 'not_birthday' };
     }
 
     const points = LOYALTY_RULES.BIRTHDAY_BONUS_POINTS;
@@ -750,19 +765,6 @@ export class LoyaltyService {
         `[${userId}] Birthday bonus skipped: loyalty profile not found`,
       );
     }
-  }
-
-  private async findOrCreateProfile(
-    userId: string,
-    trx: LoyaltyTransactionClient,
-  ): Promise<LoyaltyProfileSnapshot> {
-    const profile = await trx.loyaltyProfile.upsert({
-      where: { userId },
-      create: { userId },
-      update: {},
-    });
-
-    return profile;
   }
 
   private async resolvePointsUsedForOrder(

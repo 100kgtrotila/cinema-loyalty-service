@@ -19,3 +19,4 @@ jobs:
       - run: bun run lint
       - run: bun run build
       - run: bun run test --runInBand
+      - run: bun run test:integration
