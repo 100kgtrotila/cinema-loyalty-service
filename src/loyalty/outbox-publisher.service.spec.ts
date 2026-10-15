@@ -23,18 +23,21 @@ import { RawOutboxEvent } from './interfaces/raw-outbox-event.interface';
 describe('OutboxPublisherService', () => {
   let module: TestingModule;
   let publisher: OutboxPublisherService;
-  const update = jest.fn();
+  const executeRaw = jest.fn<() => Promise<number>>();
   const queryRaw = jest.fn();
   const emit = jest.fn();
   const event: RawOutboxEvent = {
     id: 'event-1',
     type: RABBITMQ_EVENTS.TIER_UPGRADED,
     payload: { userId: 'user-1', oldTier: 'BRONZE', newTier: 'SILVER' },
-    status: 'PENDING',
+    status: 'PROCESSING',
     aggregate_type: 'LOYALTY_PROFILE',
     aggregate_id: 'user-1',
-    attempts: 0,
+    attempts: 1,
     max_attempts: 5,
+    lease_token: 'claim-1',
+    lease_expires_at: new Date(Date.now() + 1000),
+    next_attempt_at: new Date(),
     error: null,
     published_at: null,
     created_at: new Date(),
@@ -42,7 +45,9 @@ describe('OutboxPublisherService', () => {
   };
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    executeRaw.mockResolvedValue(1);
+    queryRaw.mockResolvedValueOnce([{ ...event }]).mockResolvedValue([]);
     module = await Test.createTestingModule({
       imports: [EventEmitterModule.forRoot()],
       providers: [
@@ -50,9 +55,18 @@ describe('OutboxPublisherService', () => {
         TierUpgradeListener,
         {
           provide: PrismaService,
-          useValue: { $queryRaw: queryRaw, outboxEvent: { update } },
+          useValue: { $queryRaw: queryRaw, $executeRaw: executeRaw },
         },
-        { provide: ConfigService, useValue: { getOrThrow: () => 20 } },
+        {
+          provide: ConfigService,
+          useValue: new ConfigService({
+            app: {
+              outboxPublishTimeoutMs: 20,
+              outboxLeaseMs: 1000,
+              outboxPublishConcurrency: 2,
+            },
+          }),
+        },
         {
           provide: INJECTION_TOKENS.RABBITMQ_LOYALTY_CLIENT,
           useValue: { emit },
@@ -71,68 +85,74 @@ describe('OutboxPublisherService', () => {
   });
 
   it('marks a successfully published event completed', async () => {
-    queryRaw.mockResolvedValue([{ ...event }]);
     emit.mockReturnValue(of(undefined));
 
     await publisher.publishPendingEvents();
 
     expect(emit).toHaveBeenCalledWith(
       event.type,
-      expect.objectContaining({ userId: 'user-1' }),
-    );
-    expect(update).toHaveBeenCalledWith({
-      where: { id: event.id },
-      data: expect.objectContaining({
-        status: 'COMPLETED',
-        attempts: { increment: 1 },
+      expect.objectContaining({
+        data: {
+          userId: 'user-1',
+          oldTier: 'BRONZE',
+          newTier: 'SILVER',
+          upgradedAt: event.created_at.toISOString(),
+        },
+        options: { messageId: event.id, persistent: true },
       }),
-    });
+    );
+    expect(executeRaw).toHaveBeenLastCalledWith(
+      expect.arrayContaining([expect.stringContaining("status = 'COMPLETED'")]),
+      event.id,
+      event.lease_token,
+    );
   });
 
   it('returns a broker failure to pending through the registered Nest listener', async () => {
-    queryRaw.mockResolvedValue([{ ...event }]);
     emit.mockReturnValue(throwError(() => new Error('broker unavailable')));
 
     await publisher.publishPendingEvents();
 
-    expect(update).toHaveBeenCalledTimes(1);
-    expect(update).toHaveBeenCalledWith({
-      where: { id: event.id },
-      data: expect.objectContaining({
-        status: 'PENDING',
-        attempts: { increment: 1 },
-      }),
-    });
+    expect(executeRaw).toHaveBeenCalledTimes(2); // Recovery then failed attempt.
+    expect(executeRaw).toHaveBeenLastCalledWith(
+      expect.any(Array),
+      5000,
+      'broker unavailable',
+      event.id,
+      event.lease_token,
+    );
   });
 
   it('marks exhausted attempts failed', async () => {
-    queryRaw.mockResolvedValue([{ ...event, attempts: 4 }]);
+    queryRaw
+      .mockReset()
+      .mockResolvedValueOnce([{ ...event, attempts: 5 }])
+      .mockResolvedValue([]);
     emit.mockReturnValue(throwError(() => new Error('broker unavailable')));
 
     await publisher.publishPendingEvents();
 
-    expect(update).toHaveBeenCalledWith({
-      where: { id: event.id },
-      data: expect.objectContaining({
-        status: 'FAILED',
-        attempts: { increment: 1 },
-      }),
-    });
+    expect(executeRaw).toHaveBeenLastCalledWith(
+      expect.any(Array),
+      60000,
+      'broker unavailable',
+      event.id,
+      event.lease_token,
+    );
   });
 
   it('treats publication timeout as a retryable failure', async () => {
-    queryRaw.mockResolvedValue([{ ...event }]);
     emit.mockReturnValue(NEVER);
 
     await publisher.publishPendingEvents();
 
-    expect(update).toHaveBeenCalledTimes(1);
-    expect(update).toHaveBeenCalledWith({
-      where: { id: event.id },
-      data: expect.objectContaining({
-        status: 'PENDING',
-        error: expect.stringContaining('timed out'),
-      }),
-    });
+    expect(executeRaw).toHaveBeenCalledTimes(2);
+    expect(executeRaw).toHaveBeenLastCalledWith(
+      expect.any(Array),
+      5000,
+      expect.stringContaining('timed out'),
+      event.id,
+      event.lease_token,
+    );
   });
 });

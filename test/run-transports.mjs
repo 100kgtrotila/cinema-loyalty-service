@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { Pool } from 'pg';
 
 const project = `loyalty-e2e-${process.pid}`;
 const env = {
@@ -97,6 +98,21 @@ try {
       `${process.env.NODE_OPTIONS ?? ''} --experimental-vm-modules`.trim(),
   };
   run(process.execPath, ['x', 'prisma', 'migrate', 'deploy'], testEnv);
+  // Isolate outbound publisher rows from the application's cron. Both databases
+  // live in this run's disposable PostgreSQL container.
+  const admin = new Pool({ connectionString: databaseUrl });
+  try {
+    await admin.query('CREATE DATABASE loyalty_outbox_transport');
+  } finally {
+    await admin.end();
+  }
+  const outboxUrl = new URL(databaseUrl);
+  outboxUrl.pathname = '/loyalty_outbox_transport';
+  testEnv.E2E_OUTBOX_DATABASE_URL = outboxUrl.toString();
+  run(process.execPath, ['x', 'prisma', 'migrate', 'deploy'], {
+    ...testEnv,
+    DATABASE_URL: testEnv.E2E_OUTBOX_DATABASE_URL,
+  });
   run('docker', [...compose, 'up', '-d', 'loyalty-service', 'monolith-api']);
   testEnv.E2E_MONOLITH_URL = `http://${endpoint('monolith-api', 8080)}`;
   testEnv.E2E_LOYALTY_URL = `http://${endpoint('loyalty-service', 3000)}`;

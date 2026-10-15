@@ -4,4 +4,6 @@ export interface AppConfig {
   rmqUrl: string;
   rmqQueue: string;
   outboxPublishTimeoutMs: number;
+  outboxLeaseMs: number;
+  outboxPublishConcurrency: number;
 }
