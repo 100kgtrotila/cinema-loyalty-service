@@ -63,6 +63,7 @@ Cinema Loyalty Service is a NestJS microservice responsible for the loyalty doma
 | Layer | Technology | Purpose |
 | --- | --- | --- |
 | Runtime | Node.js 22 | JavaScript runtime |
+| Package manager | Bun 1.3.13 | Dependency installation and package scripts |
 | Framework | NestJS 11 | Application modules, DI, microservices |
 | Language | TypeScript 5.7 | Typed service implementation |
 | Database | PostgreSQL | Durable loyalty and achievement state |
@@ -114,8 +115,9 @@ sequenceDiagram
     Loyalty->>DB: BURN_DISCOUNT transaction
     Platform->>Rabbit: TicketPurchased event
     Rabbit->>Loyalty: consume TicketPurchased
-    Loyalty->>DB: update visits/tier/points
-    Loyalty->>Jobs: enqueue achievement events
+    Loyalty->>DB: commit visits/tier/points + achievement intents
+    Note over Loyalty,DB: same transaction as purchase dedupe and ledger
+    Loyalty->>Jobs: scheduled publisher enqueues persisted intents
     Jobs->>DB: update achievement progress
 ```
 
@@ -129,9 +131,12 @@ flowchart TD
     Tx["Prisma transaction"]
     Outbox["outbox_events"]
     Publish["Outbox publisher -> RabbitMQ"]
+    Intents["achievement_dispatch_intents"]
+    Queue["Achievement intent publisher -> BullMQ"]
 
     Event --> Validate --> Idempotency --> Tx
     Tx --> Outbox --> Publish
+    Tx --> Intents --> Queue
 ```
 
 ## Business Rules
@@ -225,6 +230,28 @@ Internal/admin gRPC calls are protected with metadata:
 x-api-key: <INTERNAL_API_KEY>
 ```
 
+`DeductPoints` and `RefundPoints` bind a successful idempotency key to the
+operation, UUID user/order and positive int32 amount. The key is case sensitive,
+non-empty and at most 128 characters; UUID casing is normalized. A matching retry
+returns the original committed `balanceAfter`, even after later balance changes.
+A different request using that key returns `success=false` with an idempotency
+conflict and no effect. Profile, ledger and request/result marker commit together.
+Business rejections without an effect (for example insufficient balance) do not
+reserve a key and can be retried after circumstances change.
+
+The existing `processed_events` key namespace remains global. Older/generic
+markers lack request/result metadata: RPC replay returns `success=false` with
+`reconciliation required`, rather than inferring a result or executing again.
+The additive migration leaves these rows unchanged. Upgrade all RPC instances
+before relying on payload binding; old instances ignore the added metadata.
+Do not change the key to replay an ambiguous legacy operation without reconciliation.
+
+Refund continues to credit the supplied amount without verifying a linked debit.
+Different keys are different commands, including for the same order. Full/partial
+refund limits and the coordinator's policy for an unknown deduct outcome require
+separate agreement. A repeated debit after compensation replays its original
+success; it does not create a new debit or restart checkout by itself.
+
 ## RabbitMQ Events
 
 | Queue / Event | Direction | Handler | Purpose |
@@ -268,6 +295,7 @@ bull:achievements-queue:*
 | `processed_events` | Idempotency for events and commands |
 | `user_bonus_grants` | One-time bonus grant tracking |
 | `outbox_events` | Reliable outbound domain events |
+| `achievement_dispatch_intents` | Purchase achievement delivery to BullMQ, retried until accepted |
 | `achievements` | Achievement definitions and criteria |
 | `user_achievements` | User progress and unlock state |
 
@@ -306,8 +334,8 @@ prisma/              schema and migrations
 
 | Requirement | Version / Notes |
 | --- | --- |
-| Node.js | `22+` recommended |
-| npm | project package manager |
+| Node.js | `22` (application runtime) |
+| Bun | `1.3.13` (package manager; `bun.lock` is authoritative) |
 | PostgreSQL | required for Prisma datasource |
 | Redis | required for BullMQ |
 | RabbitMQ | required for event consumers/publishers |
@@ -330,6 +358,9 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5433/cinema_loyalty_db?sch
 RMQ_URL=amqp://guest:guest@localhost:5672
 RMQ_QUEUE=loyalty_ticket_purchased
 RMQ_LOYALTY_EVENTS_QUEUE=loyalty.events
+OUTBOX_PUBLISH_TIMEOUT_MS=10000
+OUTBOX_LEASE_MS=30000
+OUTBOX_PUBLISH_CONCURRENCY=5
 
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
@@ -338,34 +369,138 @@ REDIS_PASSWORD=redis_password
 JWT_SECRET=change-me
 ```
 
+RabbitMQ outbox attempts are counted when a row is claimed, including attempts
+interrupted by a crash. Each claim receives a unique token and a PostgreSQL-timed
+lease; expired claims retry after exponential backoff (5–60 seconds), and the
+row's `maxAttempts` budget ends in `FAILED`. The lease must exceed the publish
+timeout. Up to 50 rows are processed per tick, in immediately runnable waves
+bounded by `OUTBOX_PUBLISH_CONCURRENCY` (1–50). A timeout ends the local wait;
+the underlying send may still complete. Delivery remains at least once.
+
+Tier notifications retain their JSON shape. `upgradedAt` comes from the persisted
+outbox creation time, and AMQP `messageId` carries the stable outbox ID. Receivers
+need persistent deduplication to avoid repeated side effects.
+
+For the lease migration, stop **all old publisher instances** before starting the
+new publisher. Apply the additive migration, inspect legacy `PROCESSING` rows
+with no token/lease, and reconcile explicitly selected IDs against downstream
+effects. The old in-flight attempt was not counted: an operator-approved retry
+must account for it and respect `maxAttempts`, or mark the row `FAILED` for
+investigation. There is no automatic legacy replay. Old publishers must not run
+alongside the new version because their completion updates ignore ownership.
+
+Outbox candidate selection uses PostgreSQL `statement_timestamp()` so due-time
+indexes can bound the search. Lease creation and ownership checks still use
+`clock_timestamp()`. Each tick separately recovers up to 50 expired claims and
+fails up to 50 exhausted PENDING rows. New publishers do not produce the latter;
+older publishers used a fixed budget of 5 instead of the row's `maxAttempts`.
+The partial `outbox_events_exhausted_pending_idx` indexes only these exceptions;
+its predicate is maintained in migration SQL, outside the Prisma schema DSL.
+
+Migration `20261016020000_index_exhausted_outbox_pending` uses `CREATE INDEX
+CONCURRENTLY`, verified with `bun x prisma migrate deploy`. Do not wrap it in a
+transaction. Inspect `pg_index.indisvalid/indisready` after deployment. If building
+it fails, inspect and drop the invalid index with `DROP INDEX CONCURRENTLY`, mark
+that failed migration rolled back with `prisma migrate resolve --rolled-back`,
+then retry deployment; do not skip an invalid index with `IF NOT EXISTS`.
+
+The earlier lease and command-result migrations are unchanged. Their regular
+index builds block writes, and the validated CHECK scans `processed_events`
+under an exclusive lock. Table sizes and production lock waits are unknown.
+For a large existing database where these migrations are **not yet applied**,
+an operator must execute their equivalent DDL in stages before normal deploy:
+
+1. Stop old publishers; keep new publishers/RPC instances inactive. Use a
+   dedicated SQL session with a short `lock_timeout` (for example `2s`).
+2. Execute the lease migration's additive ALTER; build its two indexes with
+   `CREATE INDEX CONCURRENTLY` outside a transaction. Verify both indexes valid.
+3. Execute the command migration's additive ALTER, then add its exact CHECK with
+   `NOT VALID`. Commit before running `VALIDATE CONSTRAINT` separately; confirm
+   `pg_constraint.convalidated = true`. Do not leave columns/constraint/indexes
+   partially installed or mark unfinished DDL as applied.
+4. Verify names, types, defaults, index definitions and CHECK against the two
+   original SQL files. Record each completed equivalent migration using
+   `bun x prisma migrate resolve --applied <migration-directory-name>`.
+5. Run `bun x prisma migrate deploy` for the new concurrent partial index, then
+   activate new instances and perform the legacy-row reconciliation above.
+
+This staged DDL was checked on disposable PostgreSQL 16, including the
+`ShareUpdateExclusiveLock` held by CHECK validation. Initial ALTER statements
+still need short exclusive locks; concurrent builds/validation consume I/O and
+may wait for existing transactions. Already-applied migrations must not be
+replayed or edited. Fresh empty databases can use normal `migrate deploy`.
+
 ## Local Setup
 
+GitHub Actions runs verification on pull requests: Bun 1.3.13 frozen install,
+Prisma generation, lint, build, Jest, disposable PostgreSQL integration tests,
+and a production Docker build without pushing an image. It has read-only
+repository permissions and uses no SSH or deployment secrets. Transport tests
+remain local because they build the adjacent `cinema-platform-back` checkout;
+see `bun run test:transports` and `test/e2e/compose.override.yml`.
+
+Automatic deployment is deliberately disabled. The former push-to-master SSH
+workflow has been removed until a working environment and the migration rollout
+procedure are agreed. Merging this PR does not deploy the service.
+
 ```bash
-npm install
-npx prisma generate
-npx prisma migrate deploy
-npm run start:dev
+bun install --frozen-lockfile
+bun x prisma generate
+bun x prisma migrate deploy
+bun run start:dev
 ```
 
 For local development with new migrations:
 
 ```bash
-npx prisma migrate dev
+bun x prisma migrate dev
 ```
 
 Validate proto files:
 
 ```bash
-npm run buf:lint
-npm run buf:build
+bun run buf:lint
+bun run buf:build
 ```
 
 Production build:
 
 ```bash
-npm run build
-npm run start:prod
+bun run build
+bun run start:prod
 ```
+
+`bun run start:prod` launches `dist/main.js` with Node.js 22. Bun remains the package manager and script runner. The Docker build uses Bun 1.3.13 for frozen installs in both stages and Node.js 22 for the application process.
+
+The pull request workflow runs the same install, Prisma generation, lint, build, and Jest checks:
+
+```bash
+bun install --frozen-lockfile
+bun x prisma generate
+bun run lint
+bun run build
+bun run test
+```
+
+Concurrency tests use real PostgreSQL 16 and require a running Docker Engine:
+
+```bash
+bun run test:integration
+```
+
+The runner creates a disposable Compose project with a random loopback port, applies the existing migrations, runs Jest, and removes the containers and data afterwards. It supplies its own database URL. The normal `bun run test` suite needs no external services. PR CI runs both suites.
+
+See [profile concurrency and integration notes](docs/profile-concurrency.md) for the writer audit, lock discipline, regression coverage, and monolith compatibility findings.
+
+For HTTP checkout through the sibling `../cinema-platform-back` repository, real gRPC/RabbitMQ/BullMQ delivery, and loyalty Redis outage recovery:
+
+```bash
+bun run test:transports
+```
+
+This requires Docker Compose 2.24.4+ and BuildKit additional contexts. The runner builds the monolith in .NET 10 containers, runs its checkout characterization tests, migrates disposable databases, and uses random loopback ports. Monolith sources are copied into the build context; no host source mount is writable. Only resources belonging to this test project are removed. Results and repository SHAs are written under `.tmp/`. This optional suite requires both repositories and is separate from PR CI.
+
+Achievement intents are saved atomically with purchases. A publisher polls every five seconds, retries unavailable Redis, and uses the intent UUID as the BullMQ job ID. `delivered_at` means queue acceptance; achievement effects retain their PostgreSQL deduplication. Apply migrations before starting the updated service. See [delivery guarantees, E2E evidence, and remaining limits](docs/achievement-delivery.md).
 
 After startup, the service runs:
 
@@ -380,16 +515,18 @@ After startup, the service runs:
 
 | Command | Purpose |
 | --- | --- |
-| `npm run build` | Build NestJS project |
-| `npm run start` | Start app once |
-| `npm run start:dev` | Start app in watch mode |
-| `npm run start:prod` | Start compiled app from `dist/src/main` |
-| `npm run lint` | Run ESLint with auto-fix |
-| `npm run test` | Run unit tests |
-| `npm run test:cov` | Run tests with coverage |
-| `npm run test:e2e` | Run e2e tests |
-| `npm run buf:lint` | Lint proto files |
-| `npm run buf:build` | Validate proto build |
+| `bun run build` | Build NestJS project |
+| `bun run start` | Start app once |
+| `bun run start:dev` | Start app in watch mode |
+| `bun run start:prod` | Start compiled app with Node.js from `dist/main.js` |
+| `bun run lint` | Run ESLint without modifying files |
+| `bun run test` | Run Jest unit and regression tests |
+| `bun run test:integration` | Run concurrency integration tests on disposable PostgreSQL 16 (Docker required) |
+| `bun run test:transports` | Run monolith HTTP checkout and loyalty transport/recovery tests on an isolated Docker stack |
+| `bun run test:cov` | Run Jest tests with coverage |
+| `bun run test:e2e` | Run Jest e2e tests |
+| `bun run buf:lint` | Lint proto files |
+| `bun run buf:build` | Validate proto build |
 
 ## Useful SQL Checks
 
@@ -431,7 +568,7 @@ order by a.code;
 
 | Problem | Fix |
 | --- | --- |
-| `Cannot find module './internal/class.js'` | Run `npx prisma generate` and rebuild |
+| `Cannot find module './internal/class.js'` | Run `bun x prisma generate` and rebuild |
 | Proto file not found in `dist` | Check `cwd` and make sure `src/proto` or `dist/proto` exists |
 | Completed BullMQ jobs disappear | Production jobs may remove completed entries |
 | Redis key is not named `completed` | Open the concrete job hash, for example `bull:loyalty-queue:<job-id>` |

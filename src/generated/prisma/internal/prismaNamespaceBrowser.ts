@@ -56,6 +56,7 @@ export const ModelName = {
   PointsTransaction: 'PointsTransaction',
   UserBonusGrant: 'UserBonusGrant',
   OutboxEvent: 'OutboxEvent',
+  AchievementDispatchIntent: 'AchievementDispatchIntent',
   Achievement: 'Achievement',
   UserAchievement: 'UserAchievement'
 } as const
@@ -99,7 +100,12 @@ export type LoyaltyProfileScalarFieldEnum = (typeof LoyaltyProfileScalarFieldEnu
 
 export const ProcessedEventScalarFieldEnum = {
   eventId: 'eventId',
-  processedAt: 'processedAt'
+  processedAt: 'processedAt',
+  operation: 'operation',
+  userId: 'userId',
+  orderId: 'orderId',
+  amount: 'amount',
+  balanceAfter: 'balanceAfter'
 } as const
 
 export type ProcessedEventScalarFieldEnum = (typeof ProcessedEventScalarFieldEnum)[keyof typeof ProcessedEventScalarFieldEnum]
@@ -143,11 +149,30 @@ export const OutboxEventScalarFieldEnum = {
   maxAttempts: 'maxAttempts',
   error: 'error',
   publishedAt: 'publishedAt',
+  leaseToken: 'leaseToken',
+  leaseExpiresAt: 'leaseExpiresAt',
+  nextAttemptAt: 'nextAttemptAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type OutboxEventScalarFieldEnum = (typeof OutboxEventScalarFieldEnum)[keyof typeof OutboxEventScalarFieldEnum]
+
+
+export const AchievementDispatchIntentScalarFieldEnum = {
+  id: 'id',
+  eventId: 'eventId',
+  userId: 'userId',
+  actionType: 'actionType',
+  payload: 'payload',
+  deliveredAt: 'deliveredAt',
+  attempts: 'attempts',
+  nextAttemptAt: 'nextAttemptAt',
+  error: 'error',
+  createdAt: 'createdAt'
+} as const
+
+export type AchievementDispatchIntentScalarFieldEnum = (typeof AchievementDispatchIntentScalarFieldEnum)[keyof typeof AchievementDispatchIntentScalarFieldEnum]
 
 
 export const AchievementScalarFieldEnum = {

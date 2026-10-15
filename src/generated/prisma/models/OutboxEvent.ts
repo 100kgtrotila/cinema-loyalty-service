@@ -46,6 +46,9 @@ export type OutboxEventMinAggregateOutputType = {
   maxAttempts: number | null
   error: string | null
   publishedAt: Date | null
+  leaseToken: string | null
+  leaseExpiresAt: Date | null
+  nextAttemptAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -60,6 +63,9 @@ export type OutboxEventMaxAggregateOutputType = {
   maxAttempts: number | null
   error: string | null
   publishedAt: Date | null
+  leaseToken: string | null
+  leaseExpiresAt: Date | null
+  nextAttemptAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -75,6 +81,9 @@ export type OutboxEventCountAggregateOutputType = {
   maxAttempts: number
   error: number
   publishedAt: number
+  leaseToken: number
+  leaseExpiresAt: number
+  nextAttemptAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -101,6 +110,9 @@ export type OutboxEventMinAggregateInputType = {
   maxAttempts?: true
   error?: true
   publishedAt?: true
+  leaseToken?: true
+  leaseExpiresAt?: true
+  nextAttemptAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -115,6 +127,9 @@ export type OutboxEventMaxAggregateInputType = {
   maxAttempts?: true
   error?: true
   publishedAt?: true
+  leaseToken?: true
+  leaseExpiresAt?: true
+  nextAttemptAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -130,6 +145,9 @@ export type OutboxEventCountAggregateInputType = {
   maxAttempts?: true
   error?: true
   publishedAt?: true
+  leaseToken?: true
+  leaseExpiresAt?: true
+  nextAttemptAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -232,6 +250,9 @@ export type OutboxEventGroupByOutputType = {
   maxAttempts: number
   error: string | null
   publishedAt: Date | null
+  leaseToken: string | null
+  leaseExpiresAt: Date | null
+  nextAttemptAt: Date
   createdAt: Date
   updatedAt: Date
   _count: OutboxEventCountAggregateOutputType | null
@@ -270,6 +291,9 @@ export type OutboxEventWhereInput = {
   maxAttempts?: Prisma.IntFilter<"OutboxEvent"> | number
   error?: Prisma.StringNullableFilter<"OutboxEvent"> | string | null
   publishedAt?: Prisma.DateTimeNullableFilter<"OutboxEvent"> | Date | string | null
+  leaseToken?: Prisma.UuidNullableFilter<"OutboxEvent"> | string | null
+  leaseExpiresAt?: Prisma.DateTimeNullableFilter<"OutboxEvent"> | Date | string | null
+  nextAttemptAt?: Prisma.DateTimeFilter<"OutboxEvent"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"OutboxEvent"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"OutboxEvent"> | Date | string
 }
@@ -285,6 +309,9 @@ export type OutboxEventOrderByWithRelationInput = {
   maxAttempts?: Prisma.SortOrder
   error?: Prisma.SortOrderInput | Prisma.SortOrder
   publishedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  leaseToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  leaseExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  nextAttemptAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -303,6 +330,9 @@ export type OutboxEventWhereUniqueInput = Prisma.AtLeast<{
   maxAttempts?: Prisma.IntFilter<"OutboxEvent"> | number
   error?: Prisma.StringNullableFilter<"OutboxEvent"> | string | null
   publishedAt?: Prisma.DateTimeNullableFilter<"OutboxEvent"> | Date | string | null
+  leaseToken?: Prisma.UuidNullableFilter<"OutboxEvent"> | string | null
+  leaseExpiresAt?: Prisma.DateTimeNullableFilter<"OutboxEvent"> | Date | string | null
+  nextAttemptAt?: Prisma.DateTimeFilter<"OutboxEvent"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"OutboxEvent"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"OutboxEvent"> | Date | string
 }, "id">
@@ -318,6 +348,9 @@ export type OutboxEventOrderByWithAggregationInput = {
   maxAttempts?: Prisma.SortOrder
   error?: Prisma.SortOrderInput | Prisma.SortOrder
   publishedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  leaseToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  leaseExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  nextAttemptAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.OutboxEventCountOrderByAggregateInput
@@ -341,6 +374,9 @@ export type OutboxEventScalarWhereWithAggregatesInput = {
   maxAttempts?: Prisma.IntWithAggregatesFilter<"OutboxEvent"> | number
   error?: Prisma.StringNullableWithAggregatesFilter<"OutboxEvent"> | string | null
   publishedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"OutboxEvent"> | Date | string | null
+  leaseToken?: Prisma.UuidNullableWithAggregatesFilter<"OutboxEvent"> | string | null
+  leaseExpiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"OutboxEvent"> | Date | string | null
+  nextAttemptAt?: Prisma.DateTimeWithAggregatesFilter<"OutboxEvent"> | Date | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"OutboxEvent"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"OutboxEvent"> | Date | string
 }
@@ -356,6 +392,9 @@ export type OutboxEventCreateInput = {
   maxAttempts?: number
   error?: string | null
   publishedAt?: Date | string | null
+  leaseToken?: string | null
+  leaseExpiresAt?: Date | string | null
+  nextAttemptAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -371,6 +410,9 @@ export type OutboxEventUncheckedCreateInput = {
   maxAttempts?: number
   error?: string | null
   publishedAt?: Date | string | null
+  leaseToken?: string | null
+  leaseExpiresAt?: Date | string | null
+  nextAttemptAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -386,6 +428,9 @@ export type OutboxEventUpdateInput = {
   maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  leaseToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nextAttemptAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -401,6 +446,9 @@ export type OutboxEventUncheckedUpdateInput = {
   maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  leaseToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nextAttemptAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -416,6 +464,9 @@ export type OutboxEventCreateManyInput = {
   maxAttempts?: number
   error?: string | null
   publishedAt?: Date | string | null
+  leaseToken?: string | null
+  leaseExpiresAt?: Date | string | null
+  nextAttemptAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -431,6 +482,9 @@ export type OutboxEventUpdateManyMutationInput = {
   maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  leaseToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nextAttemptAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -446,6 +500,9 @@ export type OutboxEventUncheckedUpdateManyInput = {
   maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  leaseToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nextAttemptAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -461,6 +518,9 @@ export type OutboxEventCountOrderByAggregateInput = {
   maxAttempts?: Prisma.SortOrder
   error?: Prisma.SortOrder
   publishedAt?: Prisma.SortOrder
+  leaseToken?: Prisma.SortOrder
+  leaseExpiresAt?: Prisma.SortOrder
+  nextAttemptAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -480,6 +540,9 @@ export type OutboxEventMaxOrderByAggregateInput = {
   maxAttempts?: Prisma.SortOrder
   error?: Prisma.SortOrder
   publishedAt?: Prisma.SortOrder
+  leaseToken?: Prisma.SortOrder
+  leaseExpiresAt?: Prisma.SortOrder
+  nextAttemptAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -494,6 +557,9 @@ export type OutboxEventMinOrderByAggregateInput = {
   maxAttempts?: Prisma.SortOrder
   error?: Prisma.SortOrder
   publishedAt?: Prisma.SortOrder
+  leaseToken?: Prisma.SortOrder
+  leaseExpiresAt?: Prisma.SortOrder
+  nextAttemptAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -520,6 +586,9 @@ export type OutboxEventSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   maxAttempts?: boolean
   error?: boolean
   publishedAt?: boolean
+  leaseToken?: boolean
+  leaseExpiresAt?: boolean
+  nextAttemptAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["outboxEvent"]>
@@ -535,6 +604,9 @@ export type OutboxEventSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   maxAttempts?: boolean
   error?: boolean
   publishedAt?: boolean
+  leaseToken?: boolean
+  leaseExpiresAt?: boolean
+  nextAttemptAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["outboxEvent"]>
@@ -550,6 +622,9 @@ export type OutboxEventSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   maxAttempts?: boolean
   error?: boolean
   publishedAt?: boolean
+  leaseToken?: boolean
+  leaseExpiresAt?: boolean
+  nextAttemptAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["outboxEvent"]>
@@ -565,11 +640,14 @@ export type OutboxEventSelectScalar = {
   maxAttempts?: boolean
   error?: boolean
   publishedAt?: boolean
+  leaseToken?: boolean
+  leaseExpiresAt?: boolean
+  nextAttemptAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type OutboxEventOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "type" | "payload" | "status" | "aggregateType" | "aggregateId" | "attempts" | "maxAttempts" | "error" | "publishedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["outboxEvent"]>
+export type OutboxEventOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "type" | "payload" | "status" | "aggregateType" | "aggregateId" | "attempts" | "maxAttempts" | "error" | "publishedAt" | "leaseToken" | "leaseExpiresAt" | "nextAttemptAt" | "createdAt" | "updatedAt", ExtArgs["result"]["outboxEvent"]>
 
 export type $OutboxEventPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "OutboxEvent"
@@ -585,6 +663,9 @@ export type $OutboxEventPayload<ExtArgs extends runtime.Types.Extensions.Interna
     maxAttempts: number
     error: string | null
     publishedAt: Date | null
+    leaseToken: string | null
+    leaseExpiresAt: Date | null
+    nextAttemptAt: Date
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["outboxEvent"]>
@@ -1020,6 +1101,9 @@ export interface OutboxEventFieldRefs {
   readonly maxAttempts: Prisma.FieldRef<"OutboxEvent", 'Int'>
   readonly error: Prisma.FieldRef<"OutboxEvent", 'String'>
   readonly publishedAt: Prisma.FieldRef<"OutboxEvent", 'DateTime'>
+  readonly leaseToken: Prisma.FieldRef<"OutboxEvent", 'String'>
+  readonly leaseExpiresAt: Prisma.FieldRef<"OutboxEvent", 'DateTime'>
+  readonly nextAttemptAt: Prisma.FieldRef<"OutboxEvent", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"OutboxEvent", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"OutboxEvent", 'DateTime'>
 }

@@ -1,8 +1,9 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { ClientProxy } from '@nestjs/microservices';
+import { ClientProxy, RmqRecordBuilder } from '@nestjs/microservices';
 import { TierUpgradeEvent } from '../events/tier-upgraded.event';
 import { lastValueFrom } from 'rxjs';
+import type { OutboxDeliveryContext } from '../interfaces/outbox-delivery-context.interface';
 import {
   INJECTION_TOKENS,
   RABBITMQ_EVENTS,
@@ -17,20 +18,28 @@ export class TierUpgradeListener {
     private readonly client: ClientProxy,
   ) {}
 
-  @OnEvent(RABBITMQ_EVENTS.TIER_UPGRADED)
-  async handle(payload: TierUpgradeEvent): Promise<void> {
+  @OnEvent(RABBITMQ_EVENTS.TIER_UPGRADED, { suppressErrors: false })
+  async handle(
+    payload: TierUpgradeEvent,
+    context: OutboxDeliveryContext,
+  ): Promise<void> {
     this.logger.log(
       `Publishing tier upgrade for user ${payload.userId}: ${payload.oldTier} → ${payload.newTier}`,
     );
 
     try {
       await lastValueFrom(
-        this.client.emit(RABBITMQ_EVENTS.TIER_UPGRADED, {
-          userId: payload.userId,
-          oldTier: payload.oldTier,
-          newTier: payload.newTier,
-          upgradedAt: new Date().toISOString(),
-        }),
+        this.client.emit(
+          RABBITMQ_EVENTS.TIER_UPGRADED,
+          new RmqRecordBuilder({
+            userId: payload.userId,
+            oldTier: payload.oldTier,
+            newTier: payload.newTier,
+            upgradedAt: context.occurredAt.toISOString(),
+          })
+            .setOptions({ messageId: context.eventId, persistent: true })
+            .build(),
+        ),
       );
       this.logger.log(
         `Successfully published event for user ${payload.userId}`,

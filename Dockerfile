@@ -1,23 +1,18 @@
-FROM node:22-alpine AS builder
+FROM node:22-alpine AS bun-base
+COPY --from=oven/bun:1.3.13-alpine /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
-
+FROM bun-base AS builder
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 COPY . .
-RUN npx prisma generate
-RUN npm run build
+RUN bun x prisma generate
+RUN bun run build
 
-FROM node:22-alpine AS runner
-WORKDIR /app
+FROM bun-base AS runner
 ENV NODE_ENV=production
-
-COPY package*.json ./
-RUN npm install --omit=dev
-
-COPY prisma ./prisma
-COPY prisma.config.ts ./
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production
 COPY --from=builder /app/dist ./dist
-
 EXPOSE 3000
-CMD ["node", "dist/main"]
+CMD ["node", "dist/main.js"]

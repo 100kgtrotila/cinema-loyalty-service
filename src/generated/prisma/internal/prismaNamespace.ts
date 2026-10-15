@@ -389,6 +389,7 @@ export const ModelName = {
   PointsTransaction: 'PointsTransaction',
   UserBonusGrant: 'UserBonusGrant',
   OutboxEvent: 'OutboxEvent',
+  AchievementDispatchIntent: 'AchievementDispatchIntent',
   Achievement: 'Achievement',
   UserAchievement: 'UserAchievement'
 } as const
@@ -406,7 +407,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "userBonusGrant" | "outboxEvent" | "achievement" | "userAchievement"
+    modelProps: "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "userBonusGrant" | "outboxEvent" | "achievementDispatchIntent" | "achievement" | "userAchievement"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -780,6 +781,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    AchievementDispatchIntent: {
+      payload: Prisma.$AchievementDispatchIntentPayload<ExtArgs>
+      fields: Prisma.AchievementDispatchIntentFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AchievementDispatchIntentFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDispatchIntentPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AchievementDispatchIntentFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDispatchIntentPayload>
+        }
+        findFirst: {
+          args: Prisma.AchievementDispatchIntentFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDispatchIntentPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AchievementDispatchIntentFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDispatchIntentPayload>
+        }
+        findMany: {
+          args: Prisma.AchievementDispatchIntentFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDispatchIntentPayload>[]
+        }
+        create: {
+          args: Prisma.AchievementDispatchIntentCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDispatchIntentPayload>
+        }
+        createMany: {
+          args: Prisma.AchievementDispatchIntentCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AchievementDispatchIntentCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDispatchIntentPayload>[]
+        }
+        delete: {
+          args: Prisma.AchievementDispatchIntentDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDispatchIntentPayload>
+        }
+        update: {
+          args: Prisma.AchievementDispatchIntentUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDispatchIntentPayload>
+        }
+        deleteMany: {
+          args: Prisma.AchievementDispatchIntentDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AchievementDispatchIntentUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AchievementDispatchIntentUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDispatchIntentPayload>[]
+        }
+        upsert: {
+          args: Prisma.AchievementDispatchIntentUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AchievementDispatchIntentPayload>
+        }
+        aggregate: {
+          args: Prisma.AchievementDispatchIntentAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAchievementDispatchIntent>
+        }
+        groupBy: {
+          args: Prisma.AchievementDispatchIntentGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AchievementDispatchIntentGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AchievementDispatchIntentCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AchievementDispatchIntentCountAggregateOutputType> | number
+        }
+      }
+    }
     Achievement: {
       payload: Prisma.$AchievementPayload<ExtArgs>
       fields: Prisma.AchievementFieldRefs
@@ -990,7 +1065,12 @@ export type LoyaltyProfileScalarFieldEnum = (typeof LoyaltyProfileScalarFieldEnu
 
 export const ProcessedEventScalarFieldEnum = {
   eventId: 'eventId',
-  processedAt: 'processedAt'
+  processedAt: 'processedAt',
+  operation: 'operation',
+  userId: 'userId',
+  orderId: 'orderId',
+  amount: 'amount',
+  balanceAfter: 'balanceAfter'
 } as const
 
 export type ProcessedEventScalarFieldEnum = (typeof ProcessedEventScalarFieldEnum)[keyof typeof ProcessedEventScalarFieldEnum]
@@ -1034,11 +1114,30 @@ export const OutboxEventScalarFieldEnum = {
   maxAttempts: 'maxAttempts',
   error: 'error',
   publishedAt: 'publishedAt',
+  leaseToken: 'leaseToken',
+  leaseExpiresAt: 'leaseExpiresAt',
+  nextAttemptAt: 'nextAttemptAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type OutboxEventScalarFieldEnum = (typeof OutboxEventScalarFieldEnum)[keyof typeof OutboxEventScalarFieldEnum]
+
+
+export const AchievementDispatchIntentScalarFieldEnum = {
+  id: 'id',
+  eventId: 'eventId',
+  userId: 'userId',
+  actionType: 'actionType',
+  payload: 'payload',
+  deliveredAt: 'deliveredAt',
+  attempts: 'attempts',
+  nextAttemptAt: 'nextAttemptAt',
+  error: 'error',
+  createdAt: 'createdAt'
+} as const
+
+export type AchievementDispatchIntentScalarFieldEnum = (typeof AchievementDispatchIntentScalarFieldEnum)[keyof typeof AchievementDispatchIntentScalarFieldEnum]
 
 
 export const AchievementScalarFieldEnum = {
@@ -1385,6 +1484,7 @@ export type GlobalOmitConfig = {
   pointsTransaction?: Prisma.PointsTransactionOmit
   userBonusGrant?: Prisma.UserBonusGrantOmit
   outboxEvent?: Prisma.OutboxEventOmit
+  achievementDispatchIntent?: Prisma.AchievementDispatchIntentOmit
   achievement?: Prisma.AchievementOmit
   userAchievement?: Prisma.UserAchievementOmit
 }

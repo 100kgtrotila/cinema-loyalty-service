@@ -9,6 +9,9 @@ export interface RawOutboxEvent {
   aggregate_id: string;
   attempts: number;
   max_attempts: number;
+  lease_token: string;
+  lease_expires_at: Date;
+  next_attempt_at: Date;
   error: string | null;
   published_at: Date | null;
   created_at: Date;

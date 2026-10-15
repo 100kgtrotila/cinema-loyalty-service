@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  lockLoyaltyProfile,
+  withTransactionRetry,
+} from '../prisma/profile-transaction';
 import { Tier } from 'src/generated/prisma/enums';
 import { Prisma } from 'src/generated/prisma/client';
 import { TicketPurchasedDto } from './dto/ticked-purchased.dto';
@@ -14,7 +18,6 @@ import {
   RollbackGoldUpgradeResponse,
   UseGoldUpgradeResponse,
 } from './interfaces/loyalty-response.interface';
-import { LoyaltyProfileSnapshot } from './interfaces/loyalty-profile.inteface';
 import { LoyaltyMapper } from 'src/utils/loyalty.mapper';
 import { LoyaltyCalculatorService } from './loyalty-calculator.service';
 import { PointsTransactionType } from './events/points-transaction-type.enum';
@@ -27,6 +30,11 @@ import {
   LOYALTY_RULES,
 } from './constants/loyalty.constants';
 import { UserDateOfBirthSetEvent } from './interfaces/user-date-of-birth-set-event.interface';
+import {
+  parsePointCommand,
+  replayPointCommand,
+  claimPointCommand,
+} from './point-command-idempotency';
 import {
   getUtcLocalYear,
   isFutureUtcLocalDate,
@@ -43,6 +51,7 @@ type LoyaltyTransactionClient = Parameters<
 type BirthdayGrantResult =
   | { status: 'granted'; points: number; balanceAfter: number }
   | { status: 'already_granted' }
+  | { status: 'not_birthday' }
   | { status: 'profile_not_found' };
 
 @Injectable()
@@ -107,34 +116,36 @@ export class LoyaltyService {
     orderId: string,
     idempotencyKey: string,
   ): Promise<DeductPointsResponse> {
-    if (amount < LOYALTY_RULES.MINIMUM_DEDUCTION) {
+    const command = parsePointCommand({
+      operation: 'DEDUCT',
+      userId,
+      amount,
+      orderId,
+      idempotencyKey,
+    });
+    if (!command)
       return {
         success: false,
         balanceAfter: 0,
-        errorMessage: `Minimum deduction is ${LOYALTY_RULES.MINIMUM_DEDUCTION} points`,
+        errorMessage: ERROR_MESSAGES.INVALID_POINT_COMMAND,
       };
-    }
 
     try {
-      const result = await this.prisma.$transaction(async (trx) => {
-        const alreadyProcessed = await trx.processedEvent.findUnique({
-          where: { eventId: idempotencyKey },
-        });
-
-        if (alreadyProcessed) {
-          const profile = await trx.loyaltyProfile.findFirstOrThrow({
-            where: { userId },
-            select: { balance: true },
-          });
+      const result = await withTransactionRetry(this.prisma, async (trx) => {
+        const profileLocked = await lockLoyaltyProfile(trx, command.userId);
+        const replay = await replayPointCommand(trx, command);
+        if (replay) return replay;
+        if (amount < LOYALTY_RULES.MINIMUM_DEDUCTION) {
           return {
-            success: true,
-            balanceAfter: profile.balance,
+            success: false,
+            balanceAfter: 0,
+            errorMessage: `Minimum deduction is ${LOYALTY_RULES.MINIMUM_DEDUCTION} points`,
           };
         }
 
-        const profile = await trx.loyaltyProfile.findUnique({
-          where: { userId },
-        });
+        const profile = profileLocked
+          ? await trx.loyaltyProfile.findUnique({ where: { userId } })
+          : null;
 
         if (!profile) {
           throw new RpcException({
@@ -152,6 +163,8 @@ export class LoyaltyService {
         }
 
         const newBalance = profile.balance - amount;
+        const racedReplay = await claimPointCommand(trx, command, newBalance);
+        if (racedReplay) return racedReplay;
 
         await trx.loyaltyProfile.update({
           where: { id: profile.id },
@@ -172,11 +185,7 @@ export class LoyaltyService {
           },
         });
 
-        await trx.processedEvent.create({
-          data: { eventId: idempotencyKey },
-        });
-
-        return { success: true, balanceAfter: newBalance };
+        return { success: true, balanceAfter: newBalance, errorMessage: '' };
       });
 
       return result;
@@ -253,17 +262,22 @@ export class LoyaltyService {
 
   async processTicketPurchase(msg: TicketPurchasedDto): Promise<void> {
     try {
-      const result = await this.prisma.$transaction(async (trx) => {
+      await withTransactionRetry(this.prisma, async (trx) => {
+        await lockLoyaltyProfile(trx, msg.userId, true);
         const alreadyProcessed = await trx.processedEvent.findUnique({
           where: { eventId: msg.eventId },
         });
 
         if (alreadyProcessed) {
+          if (alreadyProcessed.operation !== null)
+            throw new Error(ERROR_MESSAGES.IDEMPOTENCY_CONFLICT);
           this.logger.warn(`Event ${msg.eventId} already processed. Skipping.`);
-          return { processed: false, pointsEarned: 0, pointsUsed: 0 };
+          return;
         }
 
-        const profile = await this.findOrCreateProfile(msg.userId, trx);
+        const profile = await trx.loyaltyProfile.findUniqueOrThrow({
+          where: { userId: msg.userId },
+        });
         const pointsUsed = await this.resolvePointsUsedForOrder(msg, trx);
         const multiplier = this.calculator.resolveMultiplier(
           profile,
@@ -350,36 +364,38 @@ export class LoyaltyService {
           );
         }
 
-        return { processed: true, pointsEarned, pointsUsed };
-      });
-
-      if (!result.processed) return;
-
-      await this.achievementsService.dispatchEvent({
-        eventId: msg.orderId,
-        userId: msg.userId,
-        actionType: AchievementAction.TICKET_PURCHASED,
-        metadata: {
+        const metadata = {
           amount: msg.totalAmount,
-          paidAmount: msg.paidAmount,
-          pointsUsed: result.pointsUsed,
-          eventType: msg.eventType,
-          seatClass: msg.seatClass,
-        },
-      });
-
-      if (msg.seatClass === 'VIP') {
-        await this.achievementsService.dispatchEvent({
-          eventId: `${msg.orderId}_vip`,
-          userId: msg.userId,
-          actionType: AchievementAction.VIP_SEAT_BOUGHT,
-          metadata: {
-            amount: msg.totalAmount,
-            paidAmount: msg.paidAmount,
-            pointsUsed: result.pointsUsed,
+          pointsUsed,
+          ...(msg.paidAmount !== undefined
+            ? { paidAmount: msg.paidAmount }
+            : {}),
+        };
+        await this.achievementsService.saveDispatchIntents(trx, [
+          {
+            eventId: msg.orderId,
+            userId: msg.userId,
+            actionType: AchievementAction.TICKET_PURCHASED,
+            metadata: {
+              ...metadata,
+              eventType: msg.eventType,
+              ...(msg.seatClass !== undefined
+                ? { seatClass: msg.seatClass }
+                : {}),
+            },
           },
-        });
-      }
+          ...(msg.seatClass === 'VIP'
+            ? [
+                {
+                  eventId: `${msg.orderId}_vip`,
+                  userId: msg.userId,
+                  actionType: AchievementAction.VIP_SEAT_BOUGHT,
+                  metadata,
+                },
+              ]
+            : []),
+        ]);
+      });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
@@ -406,14 +422,11 @@ export class LoyaltyService {
     const isBirthdayToday = isSameUtcMonthDay(birthdayDate, now);
 
     try {
-      const result = await this.prisma.$transaction(async (trx) => {
-        await trx.loyaltyProfile.upsert({
+      const result = await withTransactionRetry(this.prisma, async (trx) => {
+        await lockLoyaltyProfile(trx, msg.userId, true);
+        await trx.loyaltyProfile.update({
           where: { userId: msg.userId },
-          create: {
-            userId: msg.userId,
-            birthdayDate,
-          },
-          update: {
+          data: {
             birthdayDate,
           },
         });
@@ -507,7 +520,14 @@ export class LoyaltyService {
       select: { balance: true },
     });
 
-    if (!profile || profile.balance < LOYALTY_RULES.MINIMUM_DEDUCTION) {
+    const pointsToDeduct = Math.floor(
+      Math.min(
+        profile?.balance ?? 0,
+        orderAmount * LOYALTY_RULES.MAX_DISCOUNT_FRACTION,
+      ),
+    );
+
+    if (pointsToDeduct < LOYALTY_RULES.MINIMUM_DEDUCTION) {
       return {
         isAllowed: false,
         pointsToDeduct: 0,
@@ -515,11 +535,6 @@ export class LoyaltyService {
       };
     }
 
-    const maxDiscountAllowed = orderAmount * 0.5;
-
-    const pointsToDeduct = Math.floor(
-      Math.min(profile.balance, maxDiscountAllowed),
-    );
     const amountToPay = orderAmount - pointsToDeduct;
 
     return {
@@ -620,9 +635,12 @@ export class LoyaltyService {
     now: Date,
   ): Promise<BirthdayGrantResult> {
     try {
-      return await this.prisma.$transaction((trx) =>
-        this.grantBirthdayBonusInTransaction(trx, userId, now),
-      );
+      return await withTransactionRetry(this.prisma, async (trx) => {
+        if (!(await lockLoyaltyProfile(trx, userId))) {
+          return { status: 'profile_not_found' as const };
+        }
+        return this.grantBirthdayBonusInTransaction(trx, userId, now);
+      });
     } catch (error: unknown) {
       if (this.isUniqueConstraintError(error)) {
         return { status: 'already_granted' };
@@ -659,6 +677,13 @@ export class LoyaltyService {
 
     if (!profile) {
       return { status: 'profile_not_found' };
+    }
+
+    if (
+      !profile.birthdayDate ||
+      !isSameUtcMonthDay(profile.birthdayDate, now)
+    ) {
+      return { status: 'not_birthday' };
     }
 
     const points = LOYALTY_RULES.BIRTHDAY_BONUS_POINTS;
@@ -748,19 +773,6 @@ export class LoyaltyService {
         `[${userId}] Birthday bonus skipped: loyalty profile not found`,
       );
     }
-  }
-
-  private async findOrCreateProfile(
-    userId: string,
-    trx: LoyaltyTransactionClient,
-  ): Promise<LoyaltyProfileSnapshot> {
-    const profile = await trx.loyaltyProfile.upsert({
-      where: { userId },
-      create: { userId },
-      update: {},
-    });
-
-    return profile;
   }
 
   private async resolvePointsUsedForOrder(

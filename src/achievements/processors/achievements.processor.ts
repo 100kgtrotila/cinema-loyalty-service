@@ -4,6 +4,10 @@ import { Job } from 'bullmq';
 import type { Achievement } from 'src/generated/prisma/client';
 import { PointsTransactionType } from 'src/loyalty/events/points-transaction-type.enum';
 import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  lockLoyaltyProfile,
+  withTransactionRetry,
+} from 'src/prisma/profile-transaction';
 import { ACHIEVEMENTS_QUEUE } from '../constants/achievements.constants';
 import { calculateAchievementProgressIncrement } from '../helpers/achievement-progress.helper';
 import { ActionEvent } from '../interfaces/action-event.interface';
@@ -18,7 +22,12 @@ export class AchievementsProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<ActionEvent, void, string>): Promise<void> {
+  async process(
+    job: Pick<
+      Job<ActionEvent, void, string>,
+      'data' | 'id' | 'queueName' | 'name'
+    >,
+  ): Promise<void> {
     const parsed = ActionEventSchema.safeParse(job.data);
 
     if (!parsed.success) {
@@ -105,13 +114,21 @@ export class AchievementsProcessor extends WorkerHost {
 
     const uniqueProcessId = `${eventId}_${achievement.id}`;
 
-    await this.prisma.$transaction(async (tx) => {
+    await withTransactionRetry(this.prisma, async (tx) => {
+      await lockLoyaltyProfile(tx, userId, true);
       const idempotency = await tx.processedEvent.createMany({
         data: { eventId: uniqueProcessId },
         skipDuplicates: true,
       });
 
       if (idempotency.count === 0) {
+        const existing = await tx.processedEvent.findUnique({
+          where: { eventId: uniqueProcessId },
+        });
+        if (existing?.operation != null)
+          throw new Error(
+            'Idempotency key is already used for a point command',
+          );
         this.logger.warn(
           `Event ${uniqueProcessId} already processed. Skipping.`,
         );
@@ -171,16 +188,11 @@ export class AchievementsProcessor extends WorkerHost {
         return;
       }
 
-      const updatedProfile = await tx.loyaltyProfile.upsert({
+      const updatedProfile = await tx.loyaltyProfile.update({
         where: { userId },
-        update: {
+        data: {
           balance: { increment: achievement.rewardPoints },
           lifetimePoints: { increment: achievement.rewardPoints },
-        },
-        create: {
-          userId,
-          balance: achievement.rewardPoints,
-          lifetimePoints: achievement.rewardPoints,
         },
       });
 
