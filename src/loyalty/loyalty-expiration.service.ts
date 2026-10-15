@@ -41,12 +41,13 @@ export class LoyaltyExpirationService {
       now.getTime() - NOTIFY_DAYS_BEFORE * TIME_CONSTANTS.MS_IN_A_DAY,
     );
 
-    let cursor: string | undefined;
+    let lastSeenId: string | undefined;
     let total = 0;
 
     do {
       const batch = await this.prisma.loyaltyProfile.findMany({
         where: {
+          ...(lastSeenId ? { id: { lt: lastSeenId } } : {}),
           balance: { gt: 0 },
           balanceExpiresAt: { gte: now, lte: thirtyDaysFromNow },
           OR: [
@@ -61,13 +62,12 @@ export class LoyaltyExpirationService {
           balanceExpiresAt: true,
         },
         take: BATCH_SIZE,
-        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
         orderBy: { id: 'desc' },
       });
 
       if (batch.length === 0) break;
 
-      cursor = batch[batch.length - 1]?.id;
+      lastSeenId = batch[batch.length - 1]?.id;
 
       await this.prisma.loyaltyProfile.updateMany({
         where: { id: { in: batch.map((p) => p.id) } },
@@ -86,7 +86,7 @@ export class LoyaltyExpirationService {
 
       total += batch.length;
       if (onProgress) await onProgress(total);
-    } while (cursor);
+    } while (lastSeenId);
     this.logger.log(
       `[notify-expiring] Завершено. Відправлено сповіщень у RabbitMQ: ${total}`,
     );
@@ -97,20 +97,23 @@ export class LoyaltyExpirationService {
   ): Promise<void> {
     const now = new Date();
     let total = 0;
-    let cursor: string | undefined;
+    let lastSeenId: string | undefined;
 
     do {
       const batch = await this.prisma.loyaltyProfile.findMany({
-        where: { balance: { gt: 0 }, balanceExpiresAt: { lte: now } },
+        where: {
+          ...(lastSeenId ? { id: { lt: lastSeenId } } : {}),
+          balance: { gt: 0 },
+          balanceExpiresAt: { lte: now },
+        },
         select: { id: true, userId: true },
         take: BATCH_SIZE,
-        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
         orderBy: { id: 'desc' },
       });
 
       if (batch.length === 0) break;
 
-      cursor = batch[batch.length - 1]?.id;
+      lastSeenId = batch[batch.length - 1]?.id;
 
       for (const candidate of batch) {
         const expired = await withTransactionRetry(this.prisma, async (tx) => {
@@ -149,7 +152,7 @@ export class LoyaltyExpirationService {
       this.logger.log(
         `[expire-points] Оброблено пачку з ${batch.length} юзерів. Загалом: ${total}`,
       );
-    } while (cursor);
+    } while (lastSeenId);
 
     this.logger.log(
       `[expire-points] Успішно завершено! Всього обнулено: ${total}`,
@@ -159,22 +162,22 @@ export class LoyaltyExpirationService {
   async resetAnnualStats(
     onProgress?: (processedTotal: number) => Promise<void>,
   ): Promise<void> {
-    let cursor: string | undefined;
+    let lastSeenId: string | undefined;
     let total = 0;
 
     do {
       const batch = await this.prisma.loyaltyProfile.findMany({
         where: {
+          ...(lastSeenId ? { id: { lt: lastSeenId } } : {}),
           OR: [{ yearPoints: { gt: 0 } }, { yearVisits: { gt: 0 } }],
         },
         select: { id: true, userId: true },
         take: BATCH_SIZE,
-        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
         orderBy: { id: 'desc' },
       });
 
       if (batch.length === 0) break;
-      cursor = batch[batch.length - 1]?.id;
+      lastSeenId = batch[batch.length - 1]?.id;
 
       for (const profile of batch) {
         await withTransactionRetry(this.prisma, async (tx) => {
@@ -188,7 +191,7 @@ export class LoyaltyExpirationService {
 
       total += batch.length;
       if (onProgress) await onProgress(total);
-    } while (cursor);
+    } while (lastSeenId);
 
     this.logger.log(
       `[annual-stats-reset] Завершено. Скинуто річну статистику для ${total} юзерів.`,
@@ -198,22 +201,22 @@ export class LoyaltyExpirationService {
   async goldReset(
     onProgress?: (processedTotal: number) => Promise<void>,
   ): Promise<void> {
-    let cursor: string | undefined;
+    let lastSeenId: string | undefined;
     let total = 0;
 
     do {
       const batch = await this.prisma.loyaltyProfile.findMany({
         where: {
+          ...(lastSeenId ? { id: { lt: lastSeenId } } : {}),
           goldUpgradeUsedMonth: { not: null },
         },
         select: { id: true },
         take: BATCH_SIZE,
-        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
         orderBy: { id: 'desc' },
       });
 
       if (batch.length === 0) break;
-      cursor = batch[batch.length - 1]?.id;
+      lastSeenId = batch[batch.length - 1]?.id;
 
       await this.prisma.loyaltyProfile.updateMany({
         where: { id: { in: batch.map((p) => p.id) } },
@@ -224,7 +227,7 @@ export class LoyaltyExpirationService {
 
       total += batch.length;
       if (onProgress) await onProgress(total);
-    } while (cursor);
+    } while (lastSeenId);
 
     this.logger.log(
       `[gold-reset] Завершено. Оновлено квоти для ${total} юзерів.`,
