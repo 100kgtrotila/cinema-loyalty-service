@@ -55,6 +55,11 @@ export type ProcessedEvent = Prisma.ProcessedEventModel
  */
 export type PointsTransaction = Prisma.PointsTransactionModel
 /**
+ * Model CheckoutDebit
+ *
+ */
+export type CheckoutDebit = Prisma.CheckoutDebitModel
+/**
  * Model UserBonusGrant
  * 
  */

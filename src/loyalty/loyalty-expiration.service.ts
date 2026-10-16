@@ -274,7 +274,60 @@ export class LoyaltyExpirationService {
             errorMessage: ERROR_MESSAGES.PROFILE_NOT_FOUND,
           };
 
-        const newBalance = profile.balance + amount;
+        const debits = await trx.pointsTransaction.findMany({
+          where: {
+            userId: command.userId,
+            orderId: command.orderId,
+            type: PointsTransactionType.BURN_DISCOUNT,
+            points: { lt: 0 },
+          },
+          select: { id: true, points: true },
+          take: 2,
+        });
+        if (debits.length === 0)
+          return {
+            success: false,
+            balanceAfter: 0,
+            errorMessage: ERROR_MESSAGES.REFUND_DEBIT_NOT_FOUND,
+          };
+        const debit = debits[0];
+        if (debits.length !== 1 || !debit)
+          return {
+            success: false,
+            balanceAfter: 0,
+            errorMessage: ERROR_MESSAGES.REFUND_RECONCILIATION,
+          };
+        const priorRefund = await trx.pointsTransaction.findFirst({
+          where: {
+            userId: command.userId,
+            orderId: command.orderId,
+            type: PointsTransactionType.REFUND,
+          },
+          select: { id: true },
+        });
+        const checkout = await trx.checkoutDebit.findUnique({
+          where: { debitId: debit.id },
+        });
+        if (priorRefund || checkout?.refundId)
+          return {
+            success: false,
+            balanceAfter: 0,
+            errorMessage: ERROR_MESSAGES.REFUND_ALREADY_COMPENSATED,
+          };
+        if (!checkout)
+          return {
+            success: false,
+            balanceAfter: 0,
+            errorMessage: ERROR_MESSAGES.REFUND_RECONCILIATION,
+          };
+        if (amount !== -debit.points)
+          return {
+            success: false,
+            balanceAfter: 0,
+            errorMessage: ERROR_MESSAGES.REFUND_AMOUNT_MISMATCH,
+          };
+
+        const newBalance = profile.balance - debit.points;
         const racedReplay = await claimPointCommand(trx, command, newBalance);
         if (racedReplay) return racedReplay;
 
@@ -283,7 +336,7 @@ export class LoyaltyExpirationService {
           data: { balance: newBalance },
         });
 
-        await trx.pointsTransaction.create({
+        const refund = await trx.pointsTransaction.create({
           data: {
             userId,
             type: PointsTransactionType.REFUND,
@@ -293,6 +346,12 @@ export class LoyaltyExpirationService {
             description: `Refund for failed order ${orderId}`,
           },
         });
+        const linked = await trx.checkoutDebit.updateMany({
+          where: { debitId: debit.id, refundId: null },
+          data: { refundId: refund.id },
+        });
+        if (linked.count !== 1)
+          throw new Error('Checkout compensation ownership changed');
 
         return { success: true, balanceAfter: newBalance, errorMessage: '' };
       });

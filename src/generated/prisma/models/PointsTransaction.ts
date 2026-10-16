@@ -244,6 +244,8 @@ export type PointsTransactionWhereInput = {
   orderId?: Prisma.UuidNullableFilter<"PointsTransaction"> | string | null
   description?: Prisma.StringNullableFilter<"PointsTransaction"> | string | null
   createdAt?: Prisma.DateTimeFilter<"PointsTransaction"> | Date | string
+  checkoutDebit?: Prisma.XOR<Prisma.CheckoutDebitNullableScalarRelationFilter, Prisma.CheckoutDebitWhereInput> | null
+  checkoutRefund?: Prisma.XOR<Prisma.CheckoutDebitNullableScalarRelationFilter, Prisma.CheckoutDebitWhereInput> | null
 }
 
 export type PointsTransactionOrderByWithRelationInput = {
@@ -255,6 +257,8 @@ export type PointsTransactionOrderByWithRelationInput = {
   orderId?: Prisma.SortOrderInput | Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  checkoutDebit?: Prisma.CheckoutDebitOrderByWithRelationInput
+  checkoutRefund?: Prisma.CheckoutDebitOrderByWithRelationInput
 }
 
 export type PointsTransactionWhereUniqueInput = Prisma.AtLeast<{
@@ -269,6 +273,8 @@ export type PointsTransactionWhereUniqueInput = Prisma.AtLeast<{
   orderId?: Prisma.UuidNullableFilter<"PointsTransaction"> | string | null
   description?: Prisma.StringNullableFilter<"PointsTransaction"> | string | null
   createdAt?: Prisma.DateTimeFilter<"PointsTransaction"> | Date | string
+  checkoutDebit?: Prisma.XOR<Prisma.CheckoutDebitNullableScalarRelationFilter, Prisma.CheckoutDebitWhereInput> | null
+  checkoutRefund?: Prisma.XOR<Prisma.CheckoutDebitNullableScalarRelationFilter, Prisma.CheckoutDebitWhereInput> | null
 }, "id">
 
 export type PointsTransactionOrderByWithAggregationInput = {
@@ -310,6 +316,8 @@ export type PointsTransactionCreateInput = {
   orderId?: string | null
   description?: string | null
   createdAt?: Date | string
+  checkoutDebit?: Prisma.CheckoutDebitCreateNestedOneWithoutDebitInput
+  checkoutRefund?: Prisma.CheckoutDebitCreateNestedOneWithoutRefundInput
 }
 
 export type PointsTransactionUncheckedCreateInput = {
@@ -321,6 +329,8 @@ export type PointsTransactionUncheckedCreateInput = {
   orderId?: string | null
   description?: string | null
   createdAt?: Date | string
+  checkoutDebit?: Prisma.CheckoutDebitUncheckedCreateNestedOneWithoutDebitInput
+  checkoutRefund?: Prisma.CheckoutDebitUncheckedCreateNestedOneWithoutRefundInput
 }
 
 export type PointsTransactionUpdateInput = {
@@ -332,6 +342,8 @@ export type PointsTransactionUpdateInput = {
   orderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  checkoutDebit?: Prisma.CheckoutDebitUpdateOneWithoutDebitNestedInput
+  checkoutRefund?: Prisma.CheckoutDebitUpdateOneWithoutRefundNestedInput
 }
 
 export type PointsTransactionUncheckedUpdateInput = {
@@ -343,6 +355,8 @@ export type PointsTransactionUncheckedUpdateInput = {
   orderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  checkoutDebit?: Prisma.CheckoutDebitUncheckedUpdateOneWithoutDebitNestedInput
+  checkoutRefund?: Prisma.CheckoutDebitUncheckedUpdateOneWithoutRefundNestedInput
 }
 
 export type PointsTransactionCreateManyInput = {
@@ -421,6 +435,174 @@ export type PointsTransactionSumOrderByAggregateInput = {
   balanceAfter?: Prisma.SortOrder
 }
 
+export type PointsTransactionScalarRelationFilter = {
+  is?: Prisma.PointsTransactionWhereInput
+  isNot?: Prisma.PointsTransactionWhereInput
+}
+
+export type PointsTransactionNullableScalarRelationFilter = {
+  is?: Prisma.PointsTransactionWhereInput | null
+  isNot?: Prisma.PointsTransactionWhereInput | null
+}
+
+export type PointsTransactionCreateNestedOneWithoutCheckoutDebitInput = {
+  create?: Prisma.XOR<Prisma.PointsTransactionCreateWithoutCheckoutDebitInput, Prisma.PointsTransactionUncheckedCreateWithoutCheckoutDebitInput>
+  connectOrCreate?: Prisma.PointsTransactionCreateOrConnectWithoutCheckoutDebitInput
+  connect?: Prisma.PointsTransactionWhereUniqueInput
+}
+
+export type PointsTransactionCreateNestedOneWithoutCheckoutRefundInput = {
+  create?: Prisma.XOR<Prisma.PointsTransactionCreateWithoutCheckoutRefundInput, Prisma.PointsTransactionUncheckedCreateWithoutCheckoutRefundInput>
+  connectOrCreate?: Prisma.PointsTransactionCreateOrConnectWithoutCheckoutRefundInput
+  connect?: Prisma.PointsTransactionWhereUniqueInput
+}
+
+export type PointsTransactionUpdateOneRequiredWithoutCheckoutDebitNestedInput = {
+  create?: Prisma.XOR<Prisma.PointsTransactionCreateWithoutCheckoutDebitInput, Prisma.PointsTransactionUncheckedCreateWithoutCheckoutDebitInput>
+  connectOrCreate?: Prisma.PointsTransactionCreateOrConnectWithoutCheckoutDebitInput
+  upsert?: Prisma.PointsTransactionUpsertWithoutCheckoutDebitInput
+  connect?: Prisma.PointsTransactionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PointsTransactionUpdateToOneWithWhereWithoutCheckoutDebitInput, Prisma.PointsTransactionUpdateWithoutCheckoutDebitInput>, Prisma.PointsTransactionUncheckedUpdateWithoutCheckoutDebitInput>
+}
+
+export type PointsTransactionUpdateOneWithoutCheckoutRefundNestedInput = {
+  create?: Prisma.XOR<Prisma.PointsTransactionCreateWithoutCheckoutRefundInput, Prisma.PointsTransactionUncheckedCreateWithoutCheckoutRefundInput>
+  connectOrCreate?: Prisma.PointsTransactionCreateOrConnectWithoutCheckoutRefundInput
+  upsert?: Prisma.PointsTransactionUpsertWithoutCheckoutRefundInput
+  disconnect?: Prisma.PointsTransactionWhereInput | boolean
+  delete?: Prisma.PointsTransactionWhereInput | boolean
+  connect?: Prisma.PointsTransactionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PointsTransactionUpdateToOneWithWhereWithoutCheckoutRefundInput, Prisma.PointsTransactionUpdateWithoutCheckoutRefundInput>, Prisma.PointsTransactionUncheckedUpdateWithoutCheckoutRefundInput>
+}
+
+export type PointsTransactionCreateWithoutCheckoutDebitInput = {
+  id?: string
+  userId: string
+  type: string
+  points: number
+  balanceAfter: number
+  orderId?: string | null
+  description?: string | null
+  createdAt?: Date | string
+  checkoutRefund?: Prisma.CheckoutDebitCreateNestedOneWithoutRefundInput
+}
+
+export type PointsTransactionUncheckedCreateWithoutCheckoutDebitInput = {
+  id?: string
+  userId: string
+  type: string
+  points: number
+  balanceAfter: number
+  orderId?: string | null
+  description?: string | null
+  createdAt?: Date | string
+  checkoutRefund?: Prisma.CheckoutDebitUncheckedCreateNestedOneWithoutRefundInput
+}
+
+export type PointsTransactionCreateOrConnectWithoutCheckoutDebitInput = {
+  where: Prisma.PointsTransactionWhereUniqueInput
+  create: Prisma.XOR<Prisma.PointsTransactionCreateWithoutCheckoutDebitInput, Prisma.PointsTransactionUncheckedCreateWithoutCheckoutDebitInput>
+}
+
+export type PointsTransactionCreateWithoutCheckoutRefundInput = {
+  id?: string
+  userId: string
+  type: string
+  points: number
+  balanceAfter: number
+  orderId?: string | null
+  description?: string | null
+  createdAt?: Date | string
+  checkoutDebit?: Prisma.CheckoutDebitCreateNestedOneWithoutDebitInput
+}
+
+export type PointsTransactionUncheckedCreateWithoutCheckoutRefundInput = {
+  id?: string
+  userId: string
+  type: string
+  points: number
+  balanceAfter: number
+  orderId?: string | null
+  description?: string | null
+  createdAt?: Date | string
+  checkoutDebit?: Prisma.CheckoutDebitUncheckedCreateNestedOneWithoutDebitInput
+}
+
+export type PointsTransactionCreateOrConnectWithoutCheckoutRefundInput = {
+  where: Prisma.PointsTransactionWhereUniqueInput
+  create: Prisma.XOR<Prisma.PointsTransactionCreateWithoutCheckoutRefundInput, Prisma.PointsTransactionUncheckedCreateWithoutCheckoutRefundInput>
+}
+
+export type PointsTransactionUpsertWithoutCheckoutDebitInput = {
+  update: Prisma.XOR<Prisma.PointsTransactionUpdateWithoutCheckoutDebitInput, Prisma.PointsTransactionUncheckedUpdateWithoutCheckoutDebitInput>
+  create: Prisma.XOR<Prisma.PointsTransactionCreateWithoutCheckoutDebitInput, Prisma.PointsTransactionUncheckedCreateWithoutCheckoutDebitInput>
+  where?: Prisma.PointsTransactionWhereInput
+}
+
+export type PointsTransactionUpdateToOneWithWhereWithoutCheckoutDebitInput = {
+  where?: Prisma.PointsTransactionWhereInput
+  data: Prisma.XOR<Prisma.PointsTransactionUpdateWithoutCheckoutDebitInput, Prisma.PointsTransactionUncheckedUpdateWithoutCheckoutDebitInput>
+}
+
+export type PointsTransactionUpdateWithoutCheckoutDebitInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  points?: Prisma.IntFieldUpdateOperationsInput | number
+  balanceAfter?: Prisma.IntFieldUpdateOperationsInput | number
+  orderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  checkoutRefund?: Prisma.CheckoutDebitUpdateOneWithoutRefundNestedInput
+}
+
+export type PointsTransactionUncheckedUpdateWithoutCheckoutDebitInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  points?: Prisma.IntFieldUpdateOperationsInput | number
+  balanceAfter?: Prisma.IntFieldUpdateOperationsInput | number
+  orderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  checkoutRefund?: Prisma.CheckoutDebitUncheckedUpdateOneWithoutRefundNestedInput
+}
+
+export type PointsTransactionUpsertWithoutCheckoutRefundInput = {
+  update: Prisma.XOR<Prisma.PointsTransactionUpdateWithoutCheckoutRefundInput, Prisma.PointsTransactionUncheckedUpdateWithoutCheckoutRefundInput>
+  create: Prisma.XOR<Prisma.PointsTransactionCreateWithoutCheckoutRefundInput, Prisma.PointsTransactionUncheckedCreateWithoutCheckoutRefundInput>
+  where?: Prisma.PointsTransactionWhereInput
+}
+
+export type PointsTransactionUpdateToOneWithWhereWithoutCheckoutRefundInput = {
+  where?: Prisma.PointsTransactionWhereInput
+  data: Prisma.XOR<Prisma.PointsTransactionUpdateWithoutCheckoutRefundInput, Prisma.PointsTransactionUncheckedUpdateWithoutCheckoutRefundInput>
+}
+
+export type PointsTransactionUpdateWithoutCheckoutRefundInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  points?: Prisma.IntFieldUpdateOperationsInput | number
+  balanceAfter?: Prisma.IntFieldUpdateOperationsInput | number
+  orderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  checkoutDebit?: Prisma.CheckoutDebitUpdateOneWithoutDebitNestedInput
+}
+
+export type PointsTransactionUncheckedUpdateWithoutCheckoutRefundInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  points?: Prisma.IntFieldUpdateOperationsInput | number
+  balanceAfter?: Prisma.IntFieldUpdateOperationsInput | number
+  orderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  checkoutDebit?: Prisma.CheckoutDebitUncheckedUpdateOneWithoutDebitNestedInput
+}
+
 
 
 export type PointsTransactionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -432,6 +614,8 @@ export type PointsTransactionSelect<ExtArgs extends runtime.Types.Extensions.Int
   orderId?: boolean
   description?: boolean
   createdAt?: boolean
+  checkoutDebit?: boolean | Prisma.PointsTransaction$checkoutDebitArgs<ExtArgs>
+  checkoutRefund?: boolean | Prisma.PointsTransaction$checkoutRefundArgs<ExtArgs>
 }, ExtArgs["result"]["pointsTransaction"]>
 
 export type PointsTransactionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -468,10 +652,19 @@ export type PointsTransactionSelectScalar = {
 }
 
 export type PointsTransactionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "type" | "points" | "balanceAfter" | "orderId" | "description" | "createdAt", ExtArgs["result"]["pointsTransaction"]>
+export type PointsTransactionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  checkoutDebit?: boolean | Prisma.PointsTransaction$checkoutDebitArgs<ExtArgs>
+  checkoutRefund?: boolean | Prisma.PointsTransaction$checkoutRefundArgs<ExtArgs>
+}
+export type PointsTransactionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
+export type PointsTransactionIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
 
 export type $PointsTransactionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "PointsTransaction"
-  objects: {}
+  objects: {
+    checkoutDebit: Prisma.$CheckoutDebitPayload<ExtArgs> | null
+    checkoutRefund: Prisma.$CheckoutDebitPayload<ExtArgs> | null
+  }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     userId: string
@@ -875,6 +1068,8 @@ readonly fields: PointsTransactionFieldRefs;
  */
 export interface Prisma__PointsTransactionClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  checkoutDebit<T extends Prisma.PointsTransaction$checkoutDebitArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PointsTransaction$checkoutDebitArgs<ExtArgs>>): Prisma.Prisma__CheckoutDebitClient<runtime.Types.Result.GetResult<Prisma.$CheckoutDebitPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  checkoutRefund<T extends Prisma.PointsTransaction$checkoutRefundArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PointsTransaction$checkoutRefundArgs<ExtArgs>>): Prisma.Prisma__CheckoutDebitClient<runtime.Types.Result.GetResult<Prisma.$CheckoutDebitPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -929,6 +1124,10 @@ export type PointsTransactionFindUniqueArgs<ExtArgs extends runtime.Types.Extens
    */
   omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
+  /**
    * Filter, which PointsTransaction to fetch.
    */
   where: Prisma.PointsTransactionWhereUniqueInput
@@ -947,6 +1146,10 @@ export type PointsTransactionFindUniqueOrThrowArgs<ExtArgs extends runtime.Types
    */
   omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
+  /**
    * Filter, which PointsTransaction to fetch.
    */
   where: Prisma.PointsTransactionWhereUniqueInput
@@ -964,6 +1167,10 @@ export type PointsTransactionFindFirstArgs<ExtArgs extends runtime.Types.Extensi
    * Omit specific fields from the PointsTransaction
    */
   omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
   /**
    * Filter, which PointsTransaction to fetch.
    */
@@ -1013,6 +1220,10 @@ export type PointsTransactionFindFirstOrThrowArgs<ExtArgs extends runtime.Types.
    */
   omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
+  /**
    * Filter, which PointsTransaction to fetch.
    */
   where?: Prisma.PointsTransactionWhereInput
@@ -1060,6 +1271,10 @@ export type PointsTransactionFindManyArgs<ExtArgs extends runtime.Types.Extensio
    * Omit specific fields from the PointsTransaction
    */
   omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
   /**
    * Filter, which PointsTransactions to fetch.
    */
@@ -1109,6 +1324,10 @@ export type PointsTransactionCreateArgs<ExtArgs extends runtime.Types.Extensions
    */
   omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
+  /**
    * The data needed to create a PointsTransaction.
    */
   data: Prisma.XOR<Prisma.PointsTransactionCreateInput, Prisma.PointsTransactionUncheckedCreateInput>
@@ -1156,6 +1375,10 @@ export type PointsTransactionUpdateArgs<ExtArgs extends runtime.Types.Extensions
    * Omit specific fields from the PointsTransaction
    */
   omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
   /**
    * The data needed to update a PointsTransaction.
    */
@@ -1223,6 +1446,10 @@ export type PointsTransactionUpsertArgs<ExtArgs extends runtime.Types.Extensions
    */
   omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
+  /**
    * The filter to search for the PointsTransaction to update in case it exists.
    */
   where: Prisma.PointsTransactionWhereUniqueInput
@@ -1249,6 +1476,10 @@ export type PointsTransactionDeleteArgs<ExtArgs extends runtime.Types.Extensions
    */
   omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
+  /**
    * Filter which PointsTransaction to delete.
    */
   where: Prisma.PointsTransactionWhereUniqueInput
@@ -1269,6 +1500,44 @@ export type PointsTransactionDeleteManyArgs<ExtArgs extends runtime.Types.Extens
 }
 
 /**
+ * PointsTransaction.checkoutDebit
+ */
+export type PointsTransaction$checkoutDebitArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CheckoutDebit
+   */
+  select?: Prisma.CheckoutDebitSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CheckoutDebit
+   */
+  omit?: Prisma.CheckoutDebitOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CheckoutDebitInclude<ExtArgs> | null
+  where?: Prisma.CheckoutDebitWhereInput
+}
+
+/**
+ * PointsTransaction.checkoutRefund
+ */
+export type PointsTransaction$checkoutRefundArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CheckoutDebit
+   */
+  select?: Prisma.CheckoutDebitSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CheckoutDebit
+   */
+  omit?: Prisma.CheckoutDebitOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CheckoutDebitInclude<ExtArgs> | null
+  where?: Prisma.CheckoutDebitWhereInput
+}
+
+/**
  * PointsTransaction without action
  */
 export type PointsTransactionDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1280,4 +1549,8 @@ export type PointsTransactionDefaultArgs<ExtArgs extends runtime.Types.Extension
    * Omit specific fields from the PointsTransaction
    */
   omit?: Prisma.PointsTransactionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PointsTransactionInclude<ExtArgs> | null
 }

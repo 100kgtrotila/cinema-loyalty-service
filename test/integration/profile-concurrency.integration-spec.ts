@@ -398,14 +398,28 @@ describe('Profile concurrency on PostgreSQL', () => {
   });
 
   it('preserves a refund and a deduction for the same user', async () => {
+    const refundedOrder = randomUUID();
+    const debit = await prisma.pointsTransaction.create({
+      data: {
+        userId,
+        orderId: refundedOrder,
+        type: 'BURN_DISCOUNT',
+        points: -40,
+        balanceAfter: 100,
+      },
+    });
+    await prisma.checkoutDebit.create({ data: { debitId: debit.id } });
     const results = await overlap(
-      () => expiration.refundPoints(userId, 40, randomUUID(), randomUUID()),
+      () => expiration.refundPoints(userId, 40, refundedOrder, randomUUID()),
       () => loyalty.deductPoints(userId, 80, randomUUID(), randomUUID()),
     );
     expect(results.every((result) => result.success)).toBe(true);
     expect((await profile()).balance).toBe(60);
     expect(
-      (await ledger()).map((row) => row.points).sort((a, b) => a - b),
+      (await ledger())
+        .filter((row) => row.id !== debit.id)
+        .map((row) => row.points)
+        .sort((a, b) => a - b),
     ).toEqual([-80, 40]);
   });
 
@@ -639,13 +653,23 @@ describe('Profile concurrency on PostgreSQL', () => {
 
   it('deduplicates overlapping refunds', async () => {
     const orderId = randomUUID();
+    const debit = await prisma.pointsTransaction.create({
+      data: {
+        userId,
+        orderId,
+        type: 'BURN_DISCOUNT',
+        points: -40,
+        balanceAfter: 100,
+      },
+    });
+    await prisma.checkoutDebit.create({ data: { debitId: debit.id } });
     const key = randomUUID();
     const refund = () => expiration.refundPoints(userId, 40, orderId, key);
     expect(
       (await overlap(refund, refund)).every((result) => result.success),
     ).toBe(true);
     expect((await profile()).balance).toBe(140);
-    expect(await ledger()).toHaveLength(1);
+    expect(await ledger()).toHaveLength(2);
     expect(await prisma.processedEvent.count()).toBe(1);
   });
 
