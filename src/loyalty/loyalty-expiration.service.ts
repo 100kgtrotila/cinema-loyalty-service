@@ -14,6 +14,7 @@ import {
 import { ClientProxy } from '@nestjs/microservices';
 import { RefundPointsResponse } from './interfaces/loyalty-response.interface';
 import { PointsTransactionType } from './events/points-transaction-type.enum';
+import { getUtcMonthKey } from './utils/utc-local-date.util';
 import {
   parsePointCommand,
   replayPointCommand,
@@ -208,14 +209,15 @@ export class LoyaltyExpirationService {
   ): Promise<void> {
     let lastSeenId: string | undefined;
     let total = 0;
+    const cutoffMonth = getUtcMonthKey();
 
     do {
       const batch = await this.prisma.loyaltyProfile.findMany({
         where: {
           ...(lastSeenId ? { id: { lt: lastSeenId } } : {}),
-          goldUpgradeUsedMonth: { not: null },
+          goldUpgradeUsedMonth: { lt: cutoffMonth },
         },
-        select: { id: true },
+        select: { id: true, userId: true },
         take: BATCH_SIZE,
         orderBy: { id: 'desc' },
       });
@@ -223,14 +225,19 @@ export class LoyaltyExpirationService {
       if (batch.length === 0) break;
       lastSeenId = batch[batch.length - 1]?.id;
 
-      await this.prisma.loyaltyProfile.updateMany({
-        where: { id: { in: batch.map((p) => p.id) } },
-        data: {
-          goldUpgradeUsedMonth: null,
-        },
-      });
-
-      total += batch.length;
+      for (const profile of batch) {
+        total += await withTransactionRetry(this.prisma, async (tx) => {
+          if (!(await lockLoyaltyProfile(tx, profile.userId))) return 0;
+          const updated = await tx.loyaltyProfile.updateMany({
+            where: {
+              id: profile.id,
+              goldUpgradeUsedMonth: { lt: getUtcMonthKey() },
+            },
+            data: { goldUpgradeUsedMonth: null },
+          });
+          return updated.count;
+        });
+      }
       if (onProgress) await onProgress(total);
     } while (lastSeenId);
 

@@ -34,6 +34,14 @@ interface PointResult {
   errorMessage: string;
 }
 interface PointRpc {
+  useGoldUpgrade(
+    request: { userId: string; orderId: string },
+    metadata: Metadata,
+  ): Observable<{ success: boolean; errorMessage: string }>;
+  rollbackGoldUpgrade(
+    request: { userId: string; orderId: string },
+    metadata: Metadata,
+  ): Observable<{ success: boolean; errorMessage: string }>;
   deductPoints(
     request: DeductPointsRequest,
     metadata: Metadata,
@@ -262,4 +270,36 @@ describe('gRPC point commands after a lost committed response', () => {
       );
     },
   );
+  it('preserves GOLD ownership across gRPC reconnect, wrong rollback and tier change', async () => {
+    const userId = request.userId;
+    const orderA = randomUUID();
+    const orderB = randomUUID();
+    const use = (orderId: string) =>
+      lastValueFrom(rpc.useGoldUpgrade({ userId, orderId }, metadata));
+    const rollback = (orderId: string) =>
+      lastValueFrom(rpc.rollbackGoldUpgrade({ userId, orderId }, metadata));
+    await prisma.loyaltyProfile.update({
+      where: { userId },
+      data: { tier: 'GOLD' },
+    });
+    expect((await use(orderA)).success).toBe(true);
+    client.close();
+    connectClient();
+    expect((await use(orderA)).success).toBe(true);
+    expect((await rollback(orderB)).success).toBe(false);
+    expect((await use(orderB)).success).toBe(false);
+    await prisma.loyaltyProfile.update({
+      where: { userId },
+      data: { tier: 'BRONZE' },
+    });
+    expect((await rollback(orderA)).success).toBe(true);
+    await prisma.loyaltyProfile.update({
+      where: { userId },
+      data: { tier: 'GOLD' },
+    });
+    expect((await use(orderB)).success).toBe(true);
+    expect((await rollback(orderA)).success).toBe(true);
+    expect((await use(orderA)).success).toBe(false);
+    expect((await use(randomUUID())).success).toBe(false);
+  });
 });

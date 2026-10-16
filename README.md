@@ -195,9 +195,20 @@ The visit is still counted in `yearVisits`, and achievements receive `paidAmount
 | Rule | Value |
 | --- | --- |
 | Eligible tier | `GOLD` |
-| Limit | one upgrade per month |
-| Usage field | `gold_upgrade_used_month` |
-| Reset job | `gold-reset` on the first day of every month |
+| Limit | one active upgrade per UTC calendar month |
+| Ownership | `gold_upgrade_reservations`: user, UTC month, order, release timestamp |
+| Usage field | `gold_upgrade_used_month` is a compatibility/read projection |
+| Reset job | Clears only older month projections; preserves current usage and reservation history |
+
+`UseGoldUpgrade` binds an order permanently to its original month. An active reservation repeats successfully, including after a tier/month change, without consuming another quota. A released order cannot reserve again. A new order still requires GOLD. `RollbackGoldUpgrade` releases only that user's matching order, even after a tier change; repeated rollback succeeds without touching a replacement reservation. Unknown orders are rejected. Both operations lock the profile first and commit ownership and the projection atomically. UTC month is determined after acquiring the profile lock; replicas still require synchronized clocks.
+
+#### GOLD ownership migration and rollout
+
+1. Stop **all** old instances accepting GOLD Use/Rollback and running `gold-reset`; prevent checkout from making new reservations during the transition. Mixed old/new writers are unsafe because old code ignores ownership.
+2. Apply `20261016040000_own_gold_upgrade_reservations` with `bun x prisma migrate deploy`. It creates a new table and unique indexes, then copies every non-null legacy month as an active hold with **no order owner**. Existing migrations are unchanged. Check source cardinality and migration duration on a production-sized copy; backfill reads the profile table and writes the new table, so synthetic tests do not establish a production duration bound.
+3. Deploy all new RPC/job instances, then resume checkout. Do not roll back to old writers without stopping traffic and reconciling reservations first.
+
+Legacy occupancy is never automatically assigned to the caller or released by an unknown rollback. A current-month hold returns a reconciliation-required failure; a later month's new reservation is allowed. For each disputed hold, reconcile authoritative checkout/payment/ticket records for that user and month. In a short operator transaction, lock the profile first, recheck the hold, then either bind its `order_id` to the proven original order (checking uniqueness), or mark it released and conditionally clear the same-month projection **only when evidence proves the benefit is unused/cancelled**. Uncertain holds remain occupied; no mass release or replay. Reset only removes old projections, retaining these holds and historical order bindings.
 
 ## gRPC API
 
@@ -302,7 +313,7 @@ achievements-queue
 | `loyalty-queue` | `expire-points` | every day at `03:00` | Expires outdated points |
 | `loyalty-queue` | `notify-expiring` | every day at `04:00` | Marks users for expiry notifications |
 | `loyalty-queue` | `annual-stats-reset` | January 1 at `00:05` | Resets `yearPoints` and `yearVisits` |
-| `loyalty-queue` | `gold-reset` | first day of every month at `01:00` | Clears monthly GOLD upgrade usage |
+| `loyalty-queue` | `gold-reset` | first day of every month at `01:00` | Clears older GOLD usage projections; preserves the current UTC month |
 | `loyalty-queue` | `grant-birthday-bonuses` | every day at `00:10 UTC` | Grants birthday bonuses |
 | `achievements-queue` | `process-achievement` | domain event | Updates achievement progress and rewards |
 

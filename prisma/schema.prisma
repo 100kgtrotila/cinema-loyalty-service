@@ -81,6 +81,18 @@ model CheckoutDebit {
   @@map("checkout_debits")
 }
 
+model GoldUpgradeReservation {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  month      String    @db.VarChar(7)
+  orderId    String?   @map("order_id") @db.Uuid
+  releasedAt DateTime? @map("released_at") @db.Timestamptz()
+
+  @@unique([userId, orderId])
+  // Active user/month uniqueness is a partial index in migration SQL.
+  @@map("gold_upgrade_reservations")
+}
+
 model UserBonusGrant {
   id                  String   @id @default(uuid()) @db.Uuid
   userId              String   @map("user_id") @db.Uuid

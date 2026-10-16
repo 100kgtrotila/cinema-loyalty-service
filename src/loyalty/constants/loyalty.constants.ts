@@ -78,6 +78,12 @@ export const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'Internal server error processing loyalty points',
   NOT_GOLD_TIER: 'User is not in Gold tier',
   GOLD_QUOTA_EXCEEDED: 'Gold upgrade quota already used for this month',
+  GOLD_RESERVATION_RELEASED:
+    'Gold upgrade reservation for this order was released',
+  GOLD_RESERVATION_NOT_FOUND:
+    'No Gold upgrade reservation for this user and order',
+  GOLD_LEGACY_RECONCILIATION:
+    'Gold upgrade quota has an unknown owner; reconciliation required',
   INTERNAL_GOLD_UPGRADE: 'Failed to process gold upgrade',
   INTERNAL_GOLD_ROLLBACK: 'Failed to rollback gold upgrade',
   INTERNAL_REFUND: 'Failed to process refund',

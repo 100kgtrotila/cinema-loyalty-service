@@ -37,6 +37,7 @@ import {
 } from './point-command-idempotency';
 import {
   getUtcLocalYear,
+  getUtcMonthKey,
   isFutureUtcLocalDate,
   isSameUtcMonthDay,
   parseUtcLocalDate,
@@ -208,48 +209,53 @@ export class LoyaltyService {
     userId: string,
     orderId: string,
   ): Promise<UseGoldUpgradeResponse> {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const currentMonth = `${now.getFullYear()}-${month}`;
-
     try {
-      const updated = await this.prisma.loyaltyProfile.updateMany({
-        where: {
-          userId,
-          tier: Tier.GOLD,
-          OR: [
-            { goldUpgradeUsedMonth: null },
-            { goldUpgradeUsedMonth: { not: currentMonth } },
-          ],
-        },
-        data: { goldUpgradeUsedMonth: currentMonth },
-      });
-
-      if (updated.count === 0) {
-        const profile = await this.prisma.loyaltyProfile.findUnique({
-          where: { userId },
-          select: { tier: true, goldUpgradeUsedMonth: true },
-        });
-
-        if (!profile) {
+      return await withTransactionRetry(this.prisma, async (tx) => {
+        if (!(await lockLoyaltyProfile(tx, userId))) {
           throw new RpcException({
             code: GrpcStatus.NOT_FOUND,
             message: `${ERROR_MESSAGES.PROFILE_NOT_FOUND} ${userId}`,
           });
         }
-
+        const profile = await tx.loyaltyProfile.findUniqueOrThrow({
+          where: { userId },
+        });
+        const existing = await tx.goldUpgradeReservation.findUnique({
+          where: { userId_orderId: { userId, orderId } },
+        });
+        if (existing)
+          return existing.releasedAt
+            ? {
+                success: false,
+                errorMessage: ERROR_MESSAGES.GOLD_RESERVATION_RELEASED,
+              }
+            : { success: true };
         if (profile.tier !== Tier.GOLD) {
           return { success: false, errorMessage: ERROR_MESSAGES.NOT_GOLD_TIER };
         }
-
-        return {
-          success: false,
-          errorMessage: ERROR_MESSAGES.GOLD_QUOTA_EXCEEDED,
-        };
-      }
-
-      this.logger.log(`Gold upgrade used by ${userId} for order ${orderId}`);
-      return { success: true };
+        // Linearize the UTC month after acquiring the profile, including waits
+        // which cross midnight. A replay never reserves a later month's quota.
+        const currentMonth = getUtcMonthKey();
+        const occupied = await tx.goldUpgradeReservation.findFirst({
+          where: { userId, month: currentMonth, releasedAt: null },
+          select: { orderId: true },
+        });
+        if (occupied || profile.goldUpgradeUsedMonth === currentMonth)
+          return {
+            success: false,
+            errorMessage: occupied?.orderId
+              ? ERROR_MESSAGES.GOLD_QUOTA_EXCEEDED
+              : ERROR_MESSAGES.GOLD_LEGACY_RECONCILIATION,
+          };
+        await tx.goldUpgradeReservation.create({
+          data: { userId, month: currentMonth, orderId },
+        });
+        await tx.loyaltyProfile.update({
+          where: { userId },
+          data: { goldUpgradeUsedMonth: currentMonth },
+        });
+        return { success: true };
+      });
     } catch (error) {
       if (error instanceof RpcException) throw error;
       const message = error instanceof Error ? error.message : String(error);
@@ -550,31 +556,34 @@ export class LoyaltyService {
     orderId: string,
   ): Promise<RollbackGoldUpgradeResponse> {
     try {
-      const profile = await this.prisma.loyaltyProfile.findUnique({
-        where: { userId },
-        select: { tier: true },
+      return await withTransactionRetry(this.prisma, async (tx) => {
+        if (!(await lockLoyaltyProfile(tx, userId))) {
+          return {
+            success: false,
+            errorMessage: `${ERROR_MESSAGES.PROFILE_NOT_FOUND} ${userId}`,
+          };
+        }
+        const reservation = await tx.goldUpgradeReservation.findUnique({
+          where: { userId_orderId: { userId, orderId } },
+        });
+        if (!reservation)
+          return {
+            success: false,
+            errorMessage: ERROR_MESSAGES.GOLD_RESERVATION_NOT_FOUND,
+          };
+        if (reservation.releasedAt) return { success: true };
+        await tx.goldUpgradeReservation.update({
+          where: { id: reservation.id },
+          data: { releasedAt: new Date() },
+        });
+        // Clearing the compatibility mirror is conditional on the owned period;
+        // an old rollback must never clear a different month's active owner.
+        await tx.loyaltyProfile.updateMany({
+          where: { userId, goldUpgradeUsedMonth: reservation.month },
+          data: { goldUpgradeUsedMonth: null },
+        });
+        return { success: true };
       });
-
-      if (!profile) {
-        return {
-          success: false,
-          errorMessage: `${ERROR_MESSAGES.PROFILE_NOT_FOUND} ${userId}`,
-        };
-      }
-
-      if (profile.tier !== Tier.GOLD) {
-        return { success: false, errorMessage: ERROR_MESSAGES.NOT_GOLD_TIER };
-      }
-
-      await this.prisma.loyaltyProfile.update({
-        where: { userId },
-        data: { goldUpgradeUsedMonth: null },
-      });
-
-      this.logger.log(
-        `Gold upgrade successfully rolled back for ${userId} (Order: ${orderId})`,
-      );
-      return { success: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Rollback failed for ${userId}: ${message}`);
@@ -806,11 +815,7 @@ export class LoyaltyService {
       return false;
     }
 
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const currentMonth = `${now.getFullYear()}-${month}`;
-
-    return goldUpgradeUsedMonth !== currentMonth;
+    return goldUpgradeUsedMonth !== getUtcMonthKey();
   }
 
   private isUniqueConstraintError(error: unknown): boolean {
