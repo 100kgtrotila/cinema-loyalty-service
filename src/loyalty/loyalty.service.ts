@@ -174,7 +174,7 @@ export class LoyaltyService {
           },
         });
 
-        await trx.pointsTransaction.create({
+        const debit = await trx.pointsTransaction.create({
           data: {
             userId,
             type: PointsTransactionType.BURN_DISCOUNT,
@@ -184,6 +184,7 @@ export class LoyaltyService {
             description: `Redeemed ${amount} pts for order ${orderId}`,
           },
         });
+        await trx.checkoutDebit.create({ data: { debitId: debit.id } });
 
         return { success: true, balanceAfter: newBalance, errorMessage: '' };
       });

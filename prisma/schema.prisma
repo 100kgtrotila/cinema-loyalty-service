@@ -63,9 +63,22 @@ model PointsTransaction {
   description  String?  @db.Text
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
+  checkoutDebit  CheckoutDebit? @relation("CheckoutDebit")
+  checkoutRefund CheckoutDebit? @relation("CheckoutRefund")
+
   @@index([userId])
   @@index([createdAt])
   @@map("points_transactions")
+}
+
+model CheckoutDebit {
+  debitId  String  @id @map("debit_id") @db.Uuid
+  refundId String? @unique @map("refund_id") @db.Uuid
+
+  debit  PointsTransaction  @relation("CheckoutDebit", fields: [debitId], references: [id], onDelete: Restrict)
+  refund PointsTransaction? @relation("CheckoutRefund", fields: [refundId], references: [id], onDelete: Restrict)
+
+  @@map("checkout_debits")
 }
 
 model UserBonusGrant {

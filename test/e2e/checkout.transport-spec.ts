@@ -32,7 +32,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
   let secondOrder: string;
   const userId = randomUUID();
   const sessionId = randomUUID();
-  const seats = [randomUUID(), randomUUID()];
+  const seats = [randomUUID(), randomUUID(), randomUUID()];
   const achievementId = randomUUID();
   let token: string;
 
@@ -92,7 +92,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       [userId],
     );
     await monolith.query(
-      `INSERT INTO halls (id, name, total_capacity, is_active) VALUES ($1, 'Isolated E2E hall', 2, true)`,
+      `INSERT INTO halls (id, name, total_capacity, is_active) VALUES ($1, 'Isolated E2E hall', 3, true)`,
       [hallId],
     );
     await monolith.query(
@@ -333,6 +333,48 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
         ).rowCount === 2,
       'both intents delivered',
     );
+  });
+
+  it('compensates the actual checkout debit when the monolith payment is declined', async () => {
+    const before = await profile();
+    await redis.set(
+      `lock:session:{${sessionId}}:${seats[2]}`,
+      userId,
+      'EX',
+      600,
+    );
+    const response = await fetch(required('E2E_MONOLITH_URL') + '/api/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        sessionId,
+        seatIds: [seats[2]],
+        paymentToken: 'test_fail_token',
+        useLoyaltyPoints: true,
+        applyGoldUpgrade: false,
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    expect(response.ok).toBe(false);
+    await response.text();
+    const compensation = await loyalty.query<{
+      order_id: string;
+      debit: number;
+      refund: number;
+    }>(
+      `SELECT d.order_id, d.points AS debit, r.points AS refund FROM checkout_debits c
+       JOIN points_transactions d ON d.id=c.debit_id
+       JOIN points_transactions r ON r.id=c.refund_id
+       WHERE d.user_id=$1`,
+      [userId],
+    );
+    expect(compensation.rows).toHaveLength(1);
+    expect(compensation.rows[0]).toMatchObject({ debit: -200, refund: 200 });
+    expect(await profile()).toEqual(before);
+    expect(await intents(compensation.rows[0].order_id)).toBe(0);
   });
 
   it('does not duplicate progress or reward after TicketPurchased redelivery', async () => {

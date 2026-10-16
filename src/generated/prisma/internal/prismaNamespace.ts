@@ -387,6 +387,7 @@ export const ModelName = {
   LoyaltyProfile: 'LoyaltyProfile',
   ProcessedEvent: 'ProcessedEvent',
   PointsTransaction: 'PointsTransaction',
+  CheckoutDebit: 'CheckoutDebit',
   UserBonusGrant: 'UserBonusGrant',
   OutboxEvent: 'OutboxEvent',
   AchievementDispatchIntent: 'AchievementDispatchIntent',
@@ -407,7 +408,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "userBonusGrant" | "outboxEvent" | "achievementDispatchIntent" | "achievement" | "userAchievement"
+    modelProps: "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "checkoutDebit" | "userBonusGrant" | "outboxEvent" | "achievementDispatchIntent" | "achievement" | "userAchievement"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -630,6 +631,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.PointsTransactionCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.PointsTransactionCountAggregateOutputType> | number
+        }
+      }
+    }
+    CheckoutDebit: {
+      payload: Prisma.$CheckoutDebitPayload<ExtArgs>
+      fields: Prisma.CheckoutDebitFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CheckoutDebitFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckoutDebitPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CheckoutDebitFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckoutDebitPayload>
+        }
+        findFirst: {
+          args: Prisma.CheckoutDebitFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckoutDebitPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CheckoutDebitFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckoutDebitPayload>
+        }
+        findMany: {
+          args: Prisma.CheckoutDebitFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckoutDebitPayload>[]
+        }
+        create: {
+          args: Prisma.CheckoutDebitCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckoutDebitPayload>
+        }
+        createMany: {
+          args: Prisma.CheckoutDebitCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CheckoutDebitCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckoutDebitPayload>[]
+        }
+        delete: {
+          args: Prisma.CheckoutDebitDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckoutDebitPayload>
+        }
+        update: {
+          args: Prisma.CheckoutDebitUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckoutDebitPayload>
+        }
+        deleteMany: {
+          args: Prisma.CheckoutDebitDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CheckoutDebitUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CheckoutDebitUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckoutDebitPayload>[]
+        }
+        upsert: {
+          args: Prisma.CheckoutDebitUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckoutDebitPayload>
+        }
+        aggregate: {
+          args: Prisma.CheckoutDebitAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCheckoutDebit>
+        }
+        groupBy: {
+          args: Prisma.CheckoutDebitGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CheckoutDebitGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CheckoutDebitCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CheckoutDebitCountAggregateOutputType> | number
         }
       }
     }
@@ -1090,6 +1165,14 @@ export const PointsTransactionScalarFieldEnum = {
 export type PointsTransactionScalarFieldEnum = (typeof PointsTransactionScalarFieldEnum)[keyof typeof PointsTransactionScalarFieldEnum]
 
 
+export const CheckoutDebitScalarFieldEnum = {
+  debitId: 'debitId',
+  refundId: 'refundId'
+} as const
+
+export type CheckoutDebitScalarFieldEnum = (typeof CheckoutDebitScalarFieldEnum)[keyof typeof CheckoutDebitScalarFieldEnum]
+
+
 export const UserBonusGrantScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -1482,6 +1565,7 @@ export type GlobalOmitConfig = {
   loyaltyProfile?: Prisma.LoyaltyProfileOmit
   processedEvent?: Prisma.ProcessedEventOmit
   pointsTransaction?: Prisma.PointsTransactionOmit
+  checkoutDebit?: Prisma.CheckoutDebitOmit
   userBonusGrant?: Prisma.UserBonusGrantOmit
   outboxEvent?: Prisma.OutboxEventOmit
   achievementDispatchIntent?: Prisma.AchievementDispatchIntentOmit

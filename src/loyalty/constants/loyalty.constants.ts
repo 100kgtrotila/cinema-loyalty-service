@@ -81,6 +81,11 @@ export const ERROR_MESSAGES = {
   INTERNAL_GOLD_UPGRADE: 'Failed to process gold upgrade',
   INTERNAL_GOLD_ROLLBACK: 'Failed to rollback gold upgrade',
   INTERNAL_REFUND: 'Failed to process refund',
+  REFUND_DEBIT_NOT_FOUND:
+    'No successful checkout debit for this user and order',
+  REFUND_AMOUNT_MISMATCH: 'Refund must equal the full checkout debit amount',
+  REFUND_ALREADY_COMPENSATED: 'Checkout debit has already been compensated',
+  REFUND_RECONCILIATION: 'Checkout debit requires reconciliation before refund',
   INVALID_POINT_COMMAND:
     'Invalid point command: UUID user/order, positive int32 amount and a non-empty key of at most 128 characters are required',
   IDEMPOTENCY_CONFLICT:

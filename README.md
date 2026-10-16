@@ -246,11 +246,38 @@ The additive migration leaves these rows unchanged. Upgrade all RPC instances
 before relying on payload binding; old instances ignore the added metadata.
 Do not change the key to replay an ambiguous legacy operation without reconciliation.
 
-Refund continues to credit the supplied amount without verifying a linked debit.
-Different keys are different commands, including for the same order. Full/partial
-refund limits and the coordinator's policy for an unknown deduct outcome require
-separate agreement. A repeated debit after compensation replays its original
-success; it does not create a new debit or restart checkout by itself.
+Refund is full checkout compensation: it requires exactly one negative
+`BURN_DISCOUNT` for the same UUID user/order, registered in `checkout_debits`.
+The requested amount must equal the actual debit. Each debit can link to only
+one refund ledger entry; another key after compensation returns `success=false`.
+An exact repeat with the original key still returns its historical committed
+result, including after later balance changes. Missing debit, amount mismatch,
+another user/order, prior compensation and ambiguous multiple debits are refusals
+without balance/ledger/idempotency effects. Partial refunds are not supported.
+
+Migration `20261016030000_link_checkout_refunds` creates an empty registry with
+ledger foreign keys and unique debit/refund references. New deduct transactions
+insert their registry row atomically. It performs no legacy eligibility backfill
+and no monetary updates. Existing typed successful refund markers still replay;
+generic markers remain unverifiable. Stop/drain all old deduct/refund RPC
+instances before migration and upgrade all instances before resuming checkout:
+old refund implementations do not enforce this rule. The new table is empty,
+but installing foreign keys still needs brief locks on the ledger; use a bounded
+deployment lock timeout and retry rather than claiming zero downtime.
+
+Legacy reconciliation must be per order, with old RPC writers stopped: establish
+the owning user, exactly one debit and its actual amount, all prior REFUND ledger
+rows/command records, payment/checkout status, and any ambiguous RPC outcome from
+the coordinator's durable records. Under the same profile row lock, an operator
+may insert `checkout_debits(debit_id, refund_id)` with an existing full refund ID
+if already compensated, or a null refund ID only after confirming no earlier
+credit. Neither registration changes balance. Retry an approved outstanding
+full compensation with its stable key. Missing evidence, multiple debits,
+unattributed/partial/excess credits, or disagreement must remain blocked for
+manual reconciliation; never rotate keys or infer eligibility from timestamps.
+A repeated debit after compensation replays its original success and does not
+create a new debit. Checkout recovery after an unknown deduct result remains a
+separate coordinator responsibility.
 
 ## RabbitMQ Events
 

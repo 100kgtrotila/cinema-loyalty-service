@@ -166,6 +166,18 @@ describe('gRPC point commands after a lost committed response', () => {
   it.each(['deductPoints', 'refundPoints'] as const)(
     'replays %s through a new channel after commit and cancellation',
     async (method) => {
+      if (method === 'refundPoints') {
+        expect(
+          (
+            await lastValueFrom(
+              rpc.deductPoints(
+                { ...request, idempotencyKey: randomUUID() },
+                metadata,
+              ),
+            )
+          ).success,
+        ).toBe(true);
+      }
       const commit = new Promise<void>((yes) => {
         committed = yes;
       });
@@ -209,7 +221,8 @@ describe('gRPC point commands after a lost committed response', () => {
             rpc[other](
               {
                 ...request,
-                orderId: randomUUID(),
+                orderId:
+                  method === 'deductPoints' ? request.orderId : randomUUID(),
                 idempotencyKey: randomUUID(),
               },
               metadata,
@@ -219,7 +232,7 @@ describe('gRPC point commands after a lost committed response', () => {
       ).toBe(true);
       expect(await lastValueFrom(rpc[method](request, metadata))).toEqual({
         success: true,
-        balanceAfter: method === 'deductPoints' ? 420 : 580,
+        balanceAfter: method === 'deductPoints' ? 420 : 500,
         errorMessage: '',
       });
       const conflict = await lastValueFrom(
@@ -227,14 +240,26 @@ describe('gRPC point commands after a lost committed response', () => {
       );
       expect(conflict.success).toBe(false);
       expect(conflict.errorMessage).toContain('Idempotency');
+      if (method === 'refundPoints') {
+        const duplicate = await lastValueFrom(
+          rpc.refundPoints(
+            { ...request, idempotencyKey: randomUUID() },
+            metadata,
+          ),
+        );
+        expect(duplicate.success).toBe(false);
+        expect(duplicate.errorMessage).toContain('already been compensated');
+      }
       expect(
         (
           await prisma.loyaltyProfile.findUniqueOrThrow({
             where: { userId: request.userId },
           })
         ).balance,
-      ).toBe(500);
-      expect(await prisma.pointsTransaction.count()).toBe(2);
+      ).toBe(method === 'deductPoints' ? 500 : 420);
+      expect(await prisma.pointsTransaction.count()).toBe(
+        method === 'deductPoints' ? 2 : 3,
+      );
     },
   );
 });
