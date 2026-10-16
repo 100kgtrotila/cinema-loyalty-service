@@ -38,6 +38,11 @@ export type PointsTransaction = Prisma.PointsTransactionModel
  */
 export type CheckoutDebit = Prisma.CheckoutDebitModel
 /**
+ * Model GoldUpgradeReservation
+ *
+ */
+export type GoldUpgradeReservation = Prisma.GoldUpgradeReservationModel
+/**
  * Model UserBonusGrant
  * 
  */

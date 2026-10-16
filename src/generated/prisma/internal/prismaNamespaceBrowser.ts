@@ -55,6 +55,7 @@ export const ModelName = {
   ProcessedEvent: 'ProcessedEvent',
   PointsTransaction: 'PointsTransaction',
   CheckoutDebit: 'CheckoutDebit',
+  GoldUpgradeReservation: 'GoldUpgradeReservation',
   UserBonusGrant: 'UserBonusGrant',
   OutboxEvent: 'OutboxEvent',
   AchievementDispatchIntent: 'AchievementDispatchIntent',
@@ -132,6 +133,17 @@ export const CheckoutDebitScalarFieldEnum = {
 } as const
 
 export type CheckoutDebitScalarFieldEnum = (typeof CheckoutDebitScalarFieldEnum)[keyof typeof CheckoutDebitScalarFieldEnum]
+
+
+export const GoldUpgradeReservationScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  month: 'month',
+  orderId: 'orderId',
+  releasedAt: 'releasedAt'
+} as const
+
+export type GoldUpgradeReservationScalarFieldEnum = (typeof GoldUpgradeReservationScalarFieldEnum)[keyof typeof GoldUpgradeReservationScalarFieldEnum]
 
 
 export const UserBonusGrantScalarFieldEnum = {

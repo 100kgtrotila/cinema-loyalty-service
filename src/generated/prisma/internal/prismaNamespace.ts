@@ -388,6 +388,7 @@ export const ModelName = {
   ProcessedEvent: 'ProcessedEvent',
   PointsTransaction: 'PointsTransaction',
   CheckoutDebit: 'CheckoutDebit',
+  GoldUpgradeReservation: 'GoldUpgradeReservation',
   UserBonusGrant: 'UserBonusGrant',
   OutboxEvent: 'OutboxEvent',
   AchievementDispatchIntent: 'AchievementDispatchIntent',
@@ -408,7 +409,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "checkoutDebit" | "userBonusGrant" | "outboxEvent" | "achievementDispatchIntent" | "achievement" | "userAchievement"
+    modelProps: "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "checkoutDebit" | "goldUpgradeReservation" | "userBonusGrant" | "outboxEvent" | "achievementDispatchIntent" | "achievement" | "userAchievement"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -705,6 +706,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.CheckoutDebitCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CheckoutDebitCountAggregateOutputType> | number
+        }
+      }
+    }
+    GoldUpgradeReservation: {
+      payload: Prisma.$GoldUpgradeReservationPayload<ExtArgs>
+      fields: Prisma.GoldUpgradeReservationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GoldUpgradeReservationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoldUpgradeReservationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GoldUpgradeReservationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoldUpgradeReservationPayload>
+        }
+        findFirst: {
+          args: Prisma.GoldUpgradeReservationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoldUpgradeReservationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GoldUpgradeReservationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoldUpgradeReservationPayload>
+        }
+        findMany: {
+          args: Prisma.GoldUpgradeReservationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoldUpgradeReservationPayload>[]
+        }
+        create: {
+          args: Prisma.GoldUpgradeReservationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoldUpgradeReservationPayload>
+        }
+        createMany: {
+          args: Prisma.GoldUpgradeReservationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GoldUpgradeReservationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoldUpgradeReservationPayload>[]
+        }
+        delete: {
+          args: Prisma.GoldUpgradeReservationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoldUpgradeReservationPayload>
+        }
+        update: {
+          args: Prisma.GoldUpgradeReservationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoldUpgradeReservationPayload>
+        }
+        deleteMany: {
+          args: Prisma.GoldUpgradeReservationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GoldUpgradeReservationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GoldUpgradeReservationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoldUpgradeReservationPayload>[]
+        }
+        upsert: {
+          args: Prisma.GoldUpgradeReservationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoldUpgradeReservationPayload>
+        }
+        aggregate: {
+          args: Prisma.GoldUpgradeReservationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGoldUpgradeReservation>
+        }
+        groupBy: {
+          args: Prisma.GoldUpgradeReservationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GoldUpgradeReservationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GoldUpgradeReservationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GoldUpgradeReservationCountAggregateOutputType> | number
         }
       }
     }
@@ -1173,6 +1248,17 @@ export const CheckoutDebitScalarFieldEnum = {
 export type CheckoutDebitScalarFieldEnum = (typeof CheckoutDebitScalarFieldEnum)[keyof typeof CheckoutDebitScalarFieldEnum]
 
 
+export const GoldUpgradeReservationScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  month: 'month',
+  orderId: 'orderId',
+  releasedAt: 'releasedAt'
+} as const
+
+export type GoldUpgradeReservationScalarFieldEnum = (typeof GoldUpgradeReservationScalarFieldEnum)[keyof typeof GoldUpgradeReservationScalarFieldEnum]
+
+
 export const UserBonusGrantScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -1566,6 +1652,7 @@ export type GlobalOmitConfig = {
   processedEvent?: Prisma.ProcessedEventOmit
   pointsTransaction?: Prisma.PointsTransactionOmit
   checkoutDebit?: Prisma.CheckoutDebitOmit
+  goldUpgradeReservation?: Prisma.GoldUpgradeReservationOmit
   userBonusGrant?: Prisma.UserBonusGrantOmit
   outboxEvent?: Prisma.OutboxEventOmit
   achievementDispatchIntent?: Prisma.AchievementDispatchIntentOmit

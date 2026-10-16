@@ -51,3 +51,7 @@ export function isSameUtcMonthDay(date: Date, reference: Date): boolean {
 export function getUtcLocalYear(date: Date): number {
   return date.getUTCFullYear();
 }
+
+export function getUtcMonthKey(date = new Date()): string {
+  return date.toISOString().slice(0, 7);
+}

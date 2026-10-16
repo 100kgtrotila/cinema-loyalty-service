@@ -32,7 +32,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
   let secondOrder: string;
   const userId = randomUUID();
   const sessionId = randomUUID();
-  const seats = [randomUUID(), randomUUID(), randomUUID()];
+  const seats = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
   const achievementId = randomUUID();
   let token: string;
 
@@ -85,6 +85,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
     const hallId = randomUUID();
     const movieId = randomUUID();
     const seatTypeId = randomUUID();
+    const premiumSeatTypeId = randomUUID();
     const pricingId = randomUUID();
     await monolith.query(
       `INSERT INTO "AspNetUsers" (id, email, user_name, first_name, last_name, email_confirmed, phone_number_confirmed, two_factor_enabled, lockout_enabled, access_failed_count)
@@ -92,7 +93,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       [userId],
     );
     await monolith.query(
-      `INSERT INTO halls (id, name, total_capacity, is_active) VALUES ($1, 'Isolated E2E hall', 3, true)`,
+      `INSERT INTO halls (id, name, total_capacity, is_active) VALUES ($1, 'Isolated E2E hall', 4, true)`,
       [hallId],
     );
     await monolith.query(
@@ -112,6 +113,14 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       [randomUUID(), pricingId, seatTypeId],
     );
     await monolith.query(
+      `INSERT INTO seat_types (id, name) VALUES ($1, 'Premium')`,
+      [premiumSeatTypeId],
+    );
+    await monolith.query(
+      `INSERT INTO pricing_items (id, pricing_id, seat_type_id, price) VALUES ($1, $2, $3, 600)`,
+      [randomUUID(), pricingId, premiumSeatTypeId],
+    );
+    await monolith.query(
       `INSERT INTO sessions (id, hall_id, movie_id, pricing_id, start_time, end_time, status, event_type, is_loyalty_payment_allowed)
       VALUES ($1, $2, $3, $4, NOW() + interval '2 days', NOW() + interval '2 days 2 hours', 1, 'STANDARD', true)`,
       [sessionId, hallId, movieId, pricingId],
@@ -119,7 +128,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
     for (const [index, seat] of seats.entries()) {
       await monolith.query(
         `INSERT INTO seats (id, hall_id, seat_type_id, row_label, number, grid_x, grid_y, status) VALUES ($1, $2, $3, 'A', $4, $4, 1, 1)`,
-        [seat, hallId, seatTypeId, index + 1],
+        [seat, hallId, index === 3 ? premiumSeatTypeId : seatTypeId, index + 1],
       );
     }
     await loyalty.query(
@@ -481,5 +490,66 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       await channel.close();
       await connection.close();
     }
+  });
+  it('releases the GOLD owner after declined payment; characterizes retained monolith prices', async () => {
+    await loyalty.query(
+      `UPDATE loyalty_profiles SET tier='GOLD' WHERE user_id=$1`,
+      [userId],
+    );
+    const before = await profile();
+    await redis.set(
+      `lock:session:{${sessionId}}:${seats[3]}`,
+      userId,
+      'EX',
+      600,
+    );
+    const response = await fetch(required('E2E_MONOLITH_URL') + '/api/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        sessionId,
+        seatIds: [seats[3]],
+        paymentToken: 'test_fail_token',
+        useLoyaltyPoints: false,
+        applyGoldUpgrade: true,
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    expect(response.ok).toBe(false);
+    const reservations = await loyalty.query<{
+      order_id: string;
+      released_at: Date | null;
+    }>(
+      `SELECT order_id, released_at FROM gold_upgrade_reservations WHERE user_id=$1`,
+      [userId],
+    );
+    expect(reservations.rows).toHaveLength(1);
+    expect(reservations.rows[0].released_at).not.toBeNull();
+    expect(
+      (
+        await loyalty.query<{ gold_upgrade_used_month: string | null }>(
+          `SELECT gold_upgrade_used_month FROM loyalty_profiles WHERE user_id=$1`,
+          [userId],
+        )
+      ).rows[0].gold_upgrade_used_month,
+    ).toBeNull();
+    expect(await profile()).toEqual(before);
+    const orderId = reservations.rows[0].order_id;
+    const failed = await monolith.query(
+      `SELECT o.status, o.total_amount::float8, t.price_snapshot::float8, t.is_gold_upgraded FROM orders o JOIN tickets t ON t.order_id=o.id WHERE o.id=$1`,
+      [orderId],
+    );
+    expect(failed.rows).toEqual([
+      {
+        status: 2,
+        total_amount: 400,
+        price_snapshot: 400,
+        is_gold_upgraded: true,
+      },
+    ]);
+    expect(await intents(orderId)).toBe(0);
   });
 });
