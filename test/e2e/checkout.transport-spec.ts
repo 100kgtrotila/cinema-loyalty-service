@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import { createHmac, randomUUID } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { Pool } from 'pg';
 import Redis from 'ioredis';
@@ -30,6 +31,8 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
   let redis: Redis;
   let firstOrder: string;
   let secondOrder: string;
+  let declinedGoldOrder: string;
+  const evidence: Record<string, unknown>[] = [];
   const userId = randomUUID();
   const sessionId = randomUUID();
   const seats = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
@@ -171,11 +174,16 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
     if (redis) await redis.quit();
     if (monolith) await monolith.end();
     if (loyalty) await loyalty.end();
+    writeFileSync(
+      process.env.E2E_CHECKOUT_EVIDENCE_FILE ?? '.tmp/checkout-evidence.json',
+      JSON.stringify(evidence, null, 2),
+    );
   });
 
   async function checkout(
     seat: string,
     useLoyaltyPoints: boolean,
+    applyGoldUpgrade = false,
   ): Promise<string> {
     await redis.set(`lock:session:{${sessionId}}:${seat}`, userId, 'EX', 600);
     const response = await fetch(required('E2E_MONOLITH_URL') + '/api/orders', {
@@ -189,7 +197,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
         seatIds: [seat],
         paymentToken: 'local-success-token',
         useLoyaltyPoints,
-        applyGoldUpgrade: false,
+        applyGoldUpgrade,
       }),
       signal: AbortSignal.timeout(20000),
     });
@@ -491,7 +499,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       await connection.close();
     }
   });
-  it('releases the GOLD owner after declined payment; characterizes retained monolith prices', async () => {
+  it('releases the GOLD owner, restores prices and makes the seat available after declined payment', async () => {
     await loyalty.query(
       `UPDATE loyalty_profiles SET tier='GOLD' WHERE user_id=$1`,
       [userId],
@@ -519,6 +527,8 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       signal: AbortSignal.timeout(20000),
     });
     expect(response.ok).toBe(false);
+    const failureBody: unknown = await response.json();
+    expect(failureBody).toMatchObject({ code: 'Payment.Failed' });
     const reservations = await loyalty.query<{
       order_id: string;
       released_at: Date | null;
@@ -538,18 +548,125 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
     ).toBeNull();
     expect(await profile()).toEqual(before);
     const orderId = reservations.rows[0].order_id;
-    const failed = await monolith.query(
-      `SELECT o.status, o.total_amount::float8, t.price_snapshot::float8, t.is_gold_upgraded FROM orders o JOIN tickets t ON t.order_id=o.id WHERE o.id=$1`,
-      [orderId],
+    declinedGoldOrder = orderId;
+    const failed = await monolith.query<{ ticket_id: string }>(
+      `SELECT o.id AS order_id, t.order_id AS ticket_order_id, o.gold_ticket_id AS journal_ticket_id,
+       t.id AS ticket_id, t.seat_id, o.status, o.total_amount::float8, o.paid_amount::float8,
+       o.gold_checkout_state, o.gold_use_confirmed, o.gold_payment_outcome_unknown,
+       o.gold_original_total::float8, o.gold_original_ticket_price::float8,
+       t.price_snapshot::float8, t.is_gold_upgraded, t.ticket_status
+       FROM orders o JOIN tickets t ON t.order_id=o.id
+       WHERE o.id=$1 AND o.user_id=$2 AND o.session_id=$3`,
+      [orderId, userId, sessionId],
     );
-    expect(failed.rows).toEqual([
-      {
-        status: 2,
-        total_amount: 400,
-        price_snapshot: 400,
-        is_gold_upgraded: true,
-      },
-    ]);
+    expect(failed.rows).toHaveLength(1);
+    expect(failed.rows[0]).toMatchObject({
+      order_id: orderId,
+      ticket_order_id: orderId,
+      journal_ticket_id: failed.rows[0].ticket_id,
+      seat_id: seats[3],
+      status: 2, // Failed
+      total_amount: 600,
+      paid_amount: 600,
+      gold_checkout_state: 5, // Compensated
+      gold_use_confirmed: true,
+      gold_payment_outcome_unknown: false,
+      gold_original_total: 600,
+      gold_original_ticket_price: 600,
+      price_snapshot: 600,
+      is_gold_upgraded: false,
+      ticket_status: 2, // Refunded
+    });
+    const ledger = await loyalty.query(
+      'SELECT order_id, type, points FROM points_transactions WHERE user_id=$1 AND order_id=$2',
+      [userId, orderId],
+    );
+    expect(ledger.rows).toEqual([]);
+    const availabilityResponse = await fetch(
+      required('E2E_MONOLITH_URL') + `/api/sessions/${sessionId}/seats`,
+      { signal: AbortSignal.timeout(5000) },
+    );
+    expect(availabilityResponse.ok).toBe(true);
+    const availability: unknown = await availabilityResponse.json();
+    expect(availability).toMatchObject({
+      seats: expect.arrayContaining([
+        expect.objectContaining({
+          id: seats[3],
+          isAvailable: true,
+          isSold: false,
+          isLocked: false,
+        }),
+      ]),
+    });
+    // Failed checkout responses expose a code/traceId, not an orderId. Join the
+    // unique seeded user/session/seat to the loyalty reservation instead.
+    evidence.push({
+      scenario: 'declined-gold',
+      httpStatus: response.status,
+      httpBody: failureBody,
+      orderId,
+      userId,
+      sessionId,
+      order: failed.rows[0],
+      reservation: reservations.rows[0],
+      ledger: ledger.rows,
+      availability,
+    });
     expect(await intents(orderId)).toBe(0);
+  });
+  it('pays a new GOLD order on the released seat and correlates the HTTP id with both databases', async () => {
+    const orderId = await checkout(seats[3], false, true);
+    expect(orderId).not.toBe(declinedGoldOrder);
+    const paid = await monolith.query<{ ticket_id: string }>(
+      `SELECT o.id AS order_id, t.order_id AS ticket_order_id, o.gold_ticket_id AS journal_ticket_id,
+       t.id AS ticket_id, t.seat_id, o.status, o.total_amount::float8, o.paid_amount::float8,
+       o.gold_checkout_state, o.gold_payment_outcome_unknown, t.price_snapshot::float8,
+       t.is_gold_upgraded, t.ticket_status FROM orders o JOIN tickets t ON t.order_id=o.id
+       WHERE o.id=$1 AND o.user_id=$2 AND o.session_id=$3`,
+      [orderId, userId, sessionId],
+    );
+    expect(paid.rows).toHaveLength(1);
+    expect(paid.rows[0]).toMatchObject({
+      order_id: orderId,
+      ticket_order_id: orderId,
+      journal_ticket_id: paid.rows[0].ticket_id,
+      seat_id: seats[3],
+      status: 1,
+      total_amount: 400,
+      paid_amount: 400,
+      gold_checkout_state: 4,
+      gold_payment_outcome_unknown: false,
+      price_snapshot: 400,
+      is_gold_upgraded: true,
+      ticket_status: 0,
+    });
+    const reservation = await loyalty.query(
+      'SELECT order_id, released_at FROM gold_upgrade_reservations WHERE user_id=$1 AND order_id=$2',
+      [userId, orderId],
+    );
+    expect(reservation.rows).toEqual([
+      { order_id: orderId, released_at: null },
+    ]);
+    const ledger = await loyalty.query<{
+      order_id: string;
+      type: string;
+      points: number;
+    }>(
+      'SELECT order_id, type, points FROM points_transactions WHERE user_id=$1 AND order_id=$2',
+      [userId, orderId],
+    );
+    expect(ledger.rows).toHaveLength(1);
+    expect(ledger.rows[0].order_id).toBe(orderId);
+    expect(ledger.rows[0].points).toBeGreaterThan(0);
+    evidence.push({
+      scenario: 'paid-gold',
+      httpOrderId: orderId,
+      orderId,
+      userId,
+      sessionId,
+      order: paid.rows[0],
+      reservation: reservation.rows[0],
+      ledger: ledger.rows,
+    });
   });
 });
