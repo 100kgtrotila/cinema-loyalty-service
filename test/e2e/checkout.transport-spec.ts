@@ -809,20 +809,6 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       },
     ];
     expect(await state()).toEqual(unknownState);
-    const availability = await fetch(
-      required('E2E_MONOLITH_URL') + `/api/sessions/${sessionId}/seats`,
-      { signal: AbortSignal.timeout(5000) },
-    );
-    expect(availability.ok).toBe(true);
-    expect(await availability.json()).toMatchObject({
-      seats: expect.arrayContaining([
-        expect.objectContaining({
-          id: seats[4],
-          isAvailable: false,
-          isSold: true,
-        }),
-      ]),
-    });
     const cancellation = await fetch(
       required('E2E_MONOLITH_URL') + `/api/orders/${orderId}/cancel`,
       {
@@ -846,5 +832,48 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       ).rows,
     ).toEqual([]);
     expect(await profile()).toEqual(before);
+    await redis.set(
+      `lock:session:{${sessionId}}:${seats[4]}`,
+      userId,
+      'EX',
+      600,
+    );
+    const resale = await fetch(
+      required('E2E_MONOLITH_URL') + '/api/orders/reservations',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ sessionId, seatIds: [seats[4]] }),
+        signal: AbortSignal.timeout(5000),
+      },
+    );
+    expect(resale.ok).toBe(false);
+    expect(await resale.json()).toMatchObject({ code: 'Order.SeatsSold' });
+    expect(await state()).toEqual(unknownState);
+    const availability = await fetch(
+      required('E2E_MONOLITH_URL') + `/api/sessions/${sessionId}/seats`,
+      { signal: AbortSignal.timeout(5000) },
+    );
+    expect(availability.ok).toBe(true);
+    const availableSeats: unknown = await availability.json();
+    evidence.push({
+      scenario: 'unknown-payment',
+      orderId,
+      state: unknownState,
+      availability: availableSeats,
+      age: availability.headers.get('age'),
+    });
+    expect(availableSeats).toMatchObject({
+      seats: expect.arrayContaining([
+        expect.objectContaining({
+          id: seats[4],
+          isAvailable: false,
+          isSold: true,
+        }),
+      ]),
+    });
   });
 });
