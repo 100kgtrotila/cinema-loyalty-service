@@ -745,12 +745,17 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       },
     );
     expect(reservation.ok).toBe(true);
-    const orderId: unknown = await reservation.json();
+    const reserved: unknown = await reservation.json();
+    expect(reserved).toMatchObject({ totalAmount: 400, status: 'Pending' });
     if (
-      typeof orderId !== 'string' ||
-      !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(orderId)
+      typeof reserved !== 'object' ||
+      reserved === null ||
+      !('id' in reserved) ||
+      typeof reserved.id !== 'string' ||
+      !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(reserved.id)
     )
       throw new Error('Reservation did not return an order ID');
+    const orderId = reserved.id;
     const state = async () =>
       (
         await monolith.query<{ status: number; ticket_status: number }>(
