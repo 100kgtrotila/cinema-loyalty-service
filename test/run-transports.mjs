@@ -8,14 +8,14 @@ const env = {
   ...process.env,
   E2E_PROJECT: project,
   LOYALTY_REPO: resolve('.'),
-  MONOLITH_REPO: resolve('../cinema-platform-back'),
+  MONOLITH_REPO: resolve(process.env.MONOLITH_REPO ?? '../cinema-platform-back'),
 };
 const compose = [
   'compose',
   '-p',
   project,
   '-f',
-  resolve('../cinema-platform-back/docker-compose.yaml'),
+  resolve(env.MONOLITH_REPO, 'docker-compose.yaml'),
   '-f',
   resolve('test/e2e/compose.override.yml'),
 ];

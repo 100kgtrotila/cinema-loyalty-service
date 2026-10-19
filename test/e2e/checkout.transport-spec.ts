@@ -6,6 +6,16 @@ import { Pool } from 'pg';
 import Redis from 'ioredis';
 import { connect } from 'amqplib';
 
+// cinema-platform-back domain enums; order and ticket states are distinct.
+const OrderStatus = {
+  Pending: 0,
+  Paid: 1,
+  Failed: 2,
+  Cancelled: 3,
+  PaymentOutcomeUnknown: 5,
+};
+const TicketStatus = { Valid: 0, Refunded: 2, Reserved: 3, Released: 4 };
+
 function required(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Run bun run test:transports (${name} missing)`);
@@ -32,10 +42,11 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
   let firstOrder: string;
   let secondOrder: string;
   let declinedGoldOrder: string;
+  let paidGoldOrder: string;
   const evidence: Record<string, unknown>[] = [];
   const userId = randomUUID();
   const sessionId = randomUUID();
-  const seats = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+  const seats = Array.from({ length: 5 }, () => randomUUID());
   const achievementId = randomUUID();
   let token: string;
 
@@ -96,7 +107,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       [userId],
     );
     await monolith.query(
-      `INSERT INTO halls (id, name, total_capacity, is_active) VALUES ($1, 'Isolated E2E hall', 4, true)`,
+      `INSERT INTO halls (id, name, total_capacity, is_active) VALUES ($1, 'Isolated E2E hall', 5, true)`,
       [hallId],
     );
     await monolith.query(
@@ -251,7 +262,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
           [firstOrder],
         )
       ).rows[0].status,
-    ).toBe(1);
+    ).toBe(OrderStatus.Paid);
     expect(
       (
         await loyalty.query<{ points: number }>(
@@ -565,7 +576,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       ticket_order_id: orderId,
       journal_ticket_id: failed.rows[0].ticket_id,
       seat_id: seats[3],
-      status: 2, // Failed
+      status: OrderStatus.Failed,
       total_amount: 600,
       paid_amount: 600,
       gold_checkout_state: 5, // Compensated
@@ -575,7 +586,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       gold_original_ticket_price: 600,
       price_snapshot: 600,
       is_gold_upgraded: false,
-      ticket_status: 2, // Refunded
+      ticket_status: TicketStatus.Released,
     });
     const ledger = await loyalty.query(
       'SELECT order_id, type, points FROM points_transactions WHERE user_id=$1 AND order_id=$2',
@@ -616,6 +627,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
   });
   it('pays a new GOLD order on the released seat and correlates the HTTP id with both databases', async () => {
     const orderId = await checkout(seats[3], false, true);
+    paidGoldOrder = orderId;
     expect(orderId).not.toBe(declinedGoldOrder);
     const paid = await monolith.query<{ ticket_id: string }>(
       `SELECT o.id AS order_id, t.order_id AS ticket_order_id, o.gold_ticket_id AS journal_ticket_id,
@@ -631,14 +643,14 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       ticket_order_id: orderId,
       journal_ticket_id: paid.rows[0].ticket_id,
       seat_id: seats[3],
-      status: 1,
+      status: OrderStatus.Paid,
       total_amount: 400,
       paid_amount: 400,
       gold_checkout_state: 4,
       gold_payment_outcome_unknown: false,
       price_snapshot: 400,
       is_gold_upgraded: true,
-      ticket_status: 0,
+      ticket_status: TicketStatus.Valid,
     });
     const reservation = await loyalty.query(
       'SELECT order_id, released_at FROM gold_upgrade_reservations WHERE user_id=$1 AND order_id=$2',
@@ -667,6 +679,201 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       order: paid.rows[0],
       reservation: reservation.rows[0],
       ledger: ledger.rows,
+    });
+  });
+
+  it('keeps Refunded for a paid GOLD purchase after confirmed payment refund', async () => {
+    const ledgerBefore = await loyalty.query(
+      'SELECT id, type, points FROM points_transactions WHERE order_id=$1 ORDER BY id',
+      [paidGoldOrder],
+    );
+    const response = await fetch(
+      required('E2E_MONOLITH_URL') + `/api/orders/${paidGoldOrder}/cancel`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(20000),
+      },
+    );
+    expect(response.ok).toBe(true);
+    const refunded = await monolith.query<{
+      status: number;
+      ticket_status: number;
+    }>(
+      'SELECT o.status, t.ticket_status FROM orders o JOIN tickets t ON t.order_id=o.id WHERE o.id=$1',
+      [paidGoldOrder],
+    );
+    expect(refunded.rows).toEqual([
+      { status: OrderStatus.Cancelled, ticket_status: TicketStatus.Refunded },
+    ]);
+    expect(
+      (
+        await loyalty.query<{ released_at: Date | null }>(
+          'SELECT released_at FROM gold_upgrade_reservations WHERE user_id=$1 AND order_id=$2',
+          [userId, paidGoldOrder],
+        )
+      ).rows[0].released_at,
+    ).not.toBeNull();
+    expect(
+      (
+        await loyalty.query(
+          'SELECT id, type, points FROM points_transactions WHERE order_id=$1 ORDER BY id',
+          [paidGoldOrder],
+        )
+      ).rows,
+    ).toEqual(ledgerBefore.rows);
+  });
+
+  it('retains a Reserved ticket when payment confirmation needs reconciliation', async () => {
+    const before = await profile();
+    await redis.set(
+      `lock:session:{${sessionId}}:${seats[4]}`,
+      userId,
+      'EX',
+      600,
+    );
+    const reservation = await fetch(
+      required('E2E_MONOLITH_URL') + '/api/orders/reservations',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ sessionId, seatIds: [seats[4]] }),
+        signal: AbortSignal.timeout(20000),
+      },
+    );
+    expect(reservation.ok).toBe(true);
+    const reserved: unknown = await reservation.json();
+    expect(reserved).toMatchObject({ totalAmount: 400, status: 'Pending' });
+    if (
+      typeof reserved !== 'object' ||
+      reserved === null ||
+      !('id' in reserved) ||
+      typeof reserved.id !== 'string' ||
+      !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(reserved.id)
+    )
+      throw new Error('Reservation did not return an order ID');
+    const orderId = reserved.id;
+    const state = async () =>
+      (
+        await monolith.query<{ status: number; ticket_status: number }>(
+          'SELECT o.status, t.ticket_status FROM orders o JOIN tickets t ON t.order_id=o.id WHERE o.id=$1',
+          [orderId],
+        )
+      ).rows;
+    expect(await state()).toEqual([
+      { status: OrderStatus.Pending, ticket_status: TicketStatus.Reserved },
+    ]);
+
+    // Fail the actual Paid transition after the mock provider accepted payment.
+    // This exercises the reconciliation branch without adding a production token.
+    await monolith.query(
+      `CREATE FUNCTION reject_checkout_confirmation() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected checkout confirmation failure'; END $$`,
+    );
+    try {
+      await monolith.query(
+        `CREATE TRIGGER reject_checkout_confirmation BEFORE UPDATE OF status ON orders FOR EACH ROW WHEN (NEW.id='${orderId}'::uuid AND NEW.status=${OrderStatus.Paid}) EXECUTE FUNCTION reject_checkout_confirmation()`,
+      );
+      const response = await fetch(
+        required('E2E_MONOLITH_URL') + `/api/orders/${orderId}/checkout`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            paymentToken: 'local-success-token',
+            useLoyaltyPoints: false,
+            applyGoldUpgrade: false,
+          }),
+          signal: AbortSignal.timeout(20000),
+        },
+      );
+      expect(response.ok).toBe(false);
+      expect(await response.json()).toMatchObject({
+        code: 'Payment.OutcomeUnknown',
+      });
+    } finally {
+      await monolith.query(
+        'DROP TRIGGER IF EXISTS reject_checkout_confirmation ON orders',
+      );
+      await monolith.query('DROP FUNCTION reject_checkout_confirmation()');
+    }
+    const unknownState = [
+      {
+        status: OrderStatus.PaymentOutcomeUnknown,
+        ticket_status: TicketStatus.Reserved,
+      },
+    ];
+    expect(await state()).toEqual(unknownState);
+    const cancellation = await fetch(
+      required('E2E_MONOLITH_URL') + `/api/orders/${orderId}/cancel`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(5000),
+      },
+    );
+    expect(cancellation.ok).toBe(false);
+    expect(await cancellation.json()).toMatchObject({
+      code: 'Order.InvalidState',
+    });
+    expect(await state()).toEqual(unknownState);
+    expect(await intents(orderId)).toBe(0);
+    expect(
+      (
+        await loyalty.query(
+          'SELECT id FROM points_transactions WHERE order_id=$1',
+          [orderId],
+        )
+      ).rows,
+    ).toEqual([]);
+    expect(await profile()).toEqual(before);
+    await redis.set(
+      `lock:session:{${sessionId}}:${seats[4]}`,
+      userId,
+      'EX',
+      600,
+    );
+    const resale = await fetch(
+      required('E2E_MONOLITH_URL') + '/api/orders/reservations',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ sessionId, seatIds: [seats[4]] }),
+        signal: AbortSignal.timeout(5000),
+      },
+    );
+    expect(resale.ok).toBe(false);
+    expect(await resale.json()).toMatchObject({ code: 'Order.SeatsSold' });
+    expect(await state()).toEqual(unknownState);
+    const availability = await fetch(
+      required('E2E_MONOLITH_URL') + `/api/sessions/${sessionId}/seats`,
+      { signal: AbortSignal.timeout(5000) },
+    );
+    expect(availability.ok).toBe(true);
+    const availableSeats: unknown = await availability.json();
+    evidence.push({
+      scenario: 'unknown-payment',
+      orderId,
+      state: unknownState,
+      availability: availableSeats,
+      age: availability.headers.get('age'),
+    });
+    expect(availableSeats).toMatchObject({
+      seats: expect.arrayContaining([
+        expect.objectContaining({
+          id: seats[4],
+          isAvailable: false,
+          isSold: true,
+        }),
+      ]),
     });
   });
 });
