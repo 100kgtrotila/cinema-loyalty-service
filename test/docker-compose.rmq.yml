@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: loyalty_test
+      POSTGRES_PASSWORD: loyalty_test
+      POSTGRES_DB: loyalty_rmq
+    ports: ['127.0.0.1::5432']
+    tmpfs: ['/var/lib/postgresql/data:size=256m']
+    mem_limit: 384m
+    cpus: 1
+    pids_limit: 128
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U loyalty_test -d loyalty_rmq']
+      interval: 1s
+      timeout: 3s
+      retries: 30
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: loyalty_test
+      RABBITMQ_DEFAULT_PASS: loyalty_test
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +SDcpu 1 +SDio 1'
+    ports: ['127.0.0.1::5672', '127.0.0.1::15672']
+    tmpfs: ['/var/lib/rabbitmq:size=128m']
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 256
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'check_running']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+networks:
+  default:
+    driver: bridge

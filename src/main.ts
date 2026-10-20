@@ -58,6 +58,7 @@ async function bootstrap() {
         durable: true,
       },
       noAck: false,
+      prefetchCount: configService.getOrThrow<number>('rmqDelivery.prefetch'),
     },
   });
 
