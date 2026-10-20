@@ -4,9 +4,9 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { ConfigService } from '@nestjs/config';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AppConfig } from './interfaces/app-config.inteface';
-import { getCorsConfig } from './config/cors.config';
+import { configureHttp } from './config/configure-http';
 
 const PROTO_RELATIVE_PATH = 'proto/loyalty/v1/loyalty.proto';
 
@@ -30,15 +30,7 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   const frontendUrl = configService.get<string>('FRONTEND_URL');
-  app.enableCors(getCorsConfig(frontendUrl!));
-  app.enableShutdownHooks();
-
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-    }),
-  );
+  configureHttp(app, frontendUrl ?? 'http://localhost:3000');
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.GRPC,
@@ -62,7 +54,6 @@ async function bootstrap() {
   });
 
   await app.startAllMicroservices();
-  app.enableCors();
   await app.listen(appConfig.port);
 
   logger.log(`HTTP Server is running on port: ${appConfig.port}`);
