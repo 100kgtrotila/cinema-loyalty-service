@@ -8,6 +8,32 @@ datasource db {
   provider = "postgresql"
 }
 
+// Transport retry budget; business idempotency remains in processed_events/grants.
+// Quarantine bytes contain the original private event and require restricted access.
+model InboundDelivery {
+  id                 String    @id @db.VarChar(64)
+  operation          String    @db.VarChar(32)
+  sourceQueue        String    @map("source_queue") @db.VarChar(255)
+  attempts           Int       @default(0)
+  maxAttempts        Int       @default(3) @map("max_attempts")
+  nextAttemptAt      DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz()
+  leaseToken         String?   @map("lease_token") @db.Uuid
+  leaseExpiresAt     DateTime? @map("lease_expires_at") @db.Timestamptz()
+  completedAt        DateTime? @map("completed_at") @db.Timestamptz()
+  quarantineRequired Boolean   @default(false) @map("quarantine_required")
+  quarantinedAt      DateTime? @map("quarantined_at") @db.Timestamptz()
+  errorCode          String?   @map("error_code") @db.VarChar(64)
+  originalBody       Bytes?    @map("original_body")
+  originalProperties Bytes?    @map("original_properties")
+  replayId           String?   @map("replay_id") @db.Uuid
+  replayCount        Int       @default(0) @map("replay_count")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@index([quarantinedAt])
+  @@map("inbound_deliveries")
+}
+
 enum Tier {
   BRONZE
   SILVER

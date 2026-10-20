@@ -560,6 +560,7 @@ After startup, the service runs:
 | `bun run lint` | Run ESLint without modifying files |
 | `bun run test` | Run Jest unit and regression tests |
 | `bun run test:integration` | Run concurrency integration tests on disposable PostgreSQL 16 (Docker required) |
+| `bun run test:rmq` | Run inbound retry/quarantine/replay tests on disposable PostgreSQL and RabbitMQ (Docker required) |
 | `bun run test:transports` | Run monolith HTTP checkout and loyalty transport/recovery tests on an isolated Docker stack |
 | `bun run test:cov` | Run Jest tests with coverage |
 | `bun run test:e2e` | Run Jest e2e tests |
