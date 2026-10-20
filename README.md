@@ -629,3 +629,9 @@ bull:loyalty-queue:failed
 ## License
 
 Internal / UNLICENSED.
+
+## Admin pagination and runtime
+
+Admin transaction history and user lists enforce a maximum page size of 100 in loyalty itself. Omitted limit or protobuf `limit=0` selects 50; limits 1–100 are accepted. Negative, fractional, non-finite or over-limit values return gRPC `INVALID_ARGUMENT`. Omitted/zero skip selects 0; negative/fractional/non-finite skip is rejected. Existing filters and total counts are unchanged. Current monolith admin validators already require limit 1–100 and nonnegative skip.
+
+The production image runs compiled Node.js 22 as the existing unprivileged `node` user (UID/GID 1000). Install/build and migrations remain separate from application startup. Dist artifacts are owned by `node`; dependencies are readable without application write access. Container startup requires existing PostgreSQL/Redis/RabbitMQ configuration and schema. The image does not require privileged ports. HTTP uses a single configured CORS policy; CORS is browser response policy, not authentication or network encryption.

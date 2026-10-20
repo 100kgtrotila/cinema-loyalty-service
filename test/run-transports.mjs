@@ -8,7 +8,9 @@ const env = {
   ...process.env,
   E2E_PROJECT: project,
   LOYALTY_REPO: resolve('.'),
-  MONOLITH_REPO: resolve(process.env.MONOLITH_REPO ?? '../cinema-platform-back'),
+  MONOLITH_REPO: resolve(
+    process.env.MONOLITH_REPO ?? '../cinema-platform-back',
+  ),
 };
 const compose = [
   'compose',
@@ -128,6 +130,38 @@ try {
       '--outputFile=.tmp/transports-results.json',
     ],
     testEnv,
+  );
+  // Exercise the production image's configured user against live dependencies.
+  const identity = capture('docker', [
+    ...compose,
+    'exec',
+    '-T',
+    'loyalty-service',
+    'node',
+    '-e',
+    "const fs = require('node:fs'); if (process.getuid() !== 1000 || process.getgid() !== 1000) process.exit(1); for (const path of ['dist/main.js', 'dist/proto/loyalty/v1/loyalty.proto', 'node_modules/@nestjs/core/package.json']) fs.accessSync(path, fs.constants.R_OK); console.log(JSON.stringify({ uid: process.getuid(), gid: process.getgid(), node: process.version }));",
+  ]);
+  const container = capture('docker', [
+    ...compose,
+    'ps',
+    '-q',
+    'loyalty-service',
+  ]);
+  run('docker', [...compose, 'stop', '--timeout', '10', 'loyalty-service']);
+  const shutdown = JSON.parse(
+    capture('docker', ['inspect', '--format', '{{json .State}}', container]),
+  );
+  if (
+    shutdown.Running ||
+    shutdown.OOMKilled ||
+    ![0, 143].includes(shutdown.ExitCode)
+  )
+    throw new Error(
+      `Production image did not shut down cleanly: ${shutdown.ExitCode}`,
+    );
+  writeFileSync(
+    '.tmp/runtime-evidence.json',
+    JSON.stringify({ identity: JSON.parse(identity), shutdown }, null, 2),
   );
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
