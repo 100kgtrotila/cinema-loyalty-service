@@ -1,52 +1,43 @@
-import { registerAs } from '@nestjs/config';
-import { AppConfig } from 'src/interfaces/app-config.inteface';
+import {
+  parseEnvironment,
+  replayEnvSchema,
+  runtimeEnvSchema,
+} from './env.schema';
+import type { RuntimeEnv } from './env.schema';
+import rmqDeliveryConfig from './rmq-delivery.config';
 
-export default registerAs('app', (): AppConfig => {
-  const outboxPublishTimeoutMs = Number(
-    process.env.OUTBOX_PUBLISH_TIMEOUT_MS ?? '10000',
-  );
-  if (
-    !Number.isSafeInteger(outboxPublishTimeoutMs) ||
-    outboxPublishTimeoutMs <= 0 ||
-    outboxPublishTimeoutMs > 2147483647
-  ) {
-    throw new Error(
-      'OUTBOX_PUBLISH_TIMEOUT_MS must be an integer from 1 to 2147483647',
-    );
-  }
-  const outboxLeaseMs = Number(
-    process.env.OUTBOX_LEASE_MS ??
-      Math.max(30000, outboxPublishTimeoutMs + 5000),
-  );
-  if (
-    !Number.isSafeInteger(outboxLeaseMs) ||
-    outboxLeaseMs <= outboxPublishTimeoutMs ||
-    outboxLeaseMs > 2147483647
-  ) {
-    throw new Error(
-      'OUTBOX_LEASE_MS must be an integer greater than OUTBOX_PUBLISH_TIMEOUT_MS and at most 2147483647',
-    );
-  }
-  const outboxPublishConcurrency = Number(
-    process.env.OUTBOX_PUBLISH_CONCURRENCY ?? '5',
-  );
-  if (
-    !Number.isSafeInteger(outboxPublishConcurrency) ||
-    outboxPublishConcurrency < 1 ||
-    outboxPublishConcurrency > 50
-  ) {
-    throw new Error(
-      'OUTBOX_PUBLISH_CONCURRENCY must be an integer from 1 to 50',
-    );
-  }
-
+export function createAppConfig(env: RuntimeEnv) {
   return {
-    port: parseInt(process.env.PORT || '3000', 10),
-    grpcUrl: process.env.GRPC_URL || '0.0.0.0:50051',
-    rmqUrl: process.env.RMQ_URL || 'amqp://localhost:5672',
-    rmqQueue: process.env.RMQ_QUEUE || 'loyalty_ticket_purchased',
-    outboxPublishTimeoutMs,
-    outboxLeaseMs,
-    outboxPublishConcurrency,
+    port: env.PORT,
+    grpcUrl: env.GRPC_URL,
+    rmqUrl: env.RMQ_URL,
+    rmqQueue: env.RMQ_QUEUE,
+    outboxPublishTimeoutMs: env.OUTBOX_PUBLISH_TIMEOUT_MS,
+    outboxLeaseMs: env.OUTBOX_LEASE_MS,
+    outboxPublishConcurrency: env.OUTBOX_PUBLISH_CONCURRENCY,
   };
-});
+}
+
+export function createRuntimeConfiguration(input: unknown) {
+  const env = parseEnvironment(runtimeEnvSchema, input);
+  return {
+    ...env,
+    app: createAppConfig(env),
+    rmqDelivery: rmqDeliveryConfig(env),
+  };
+}
+
+// ConfigModule executes this factory during dependency creation, before lifecycle
+// hooks or transports start. Consumers receive parsed values, never raw env.
+export default function appConfig() {
+  return createRuntimeConfiguration(process.env);
+}
+export type RuntimeConfiguration = ReturnType<
+  typeof createRuntimeConfiguration
+>;
+
+export function replayConfig() {
+  const env = parseEnvironment(replayEnvSchema, process.env);
+  return { ...env, app: { rmqUrl: env.RMQ_URL, rmqQueue: env.RMQ_QUEUE } };
+}
+export type ReplayConfiguration = ReturnType<typeof replayConfig>;

@@ -3,12 +3,19 @@ import { Module, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { connect } from 'amqplib';
-import appConfig from '../config/app.config';
+import { replayConfig } from '../config/app.config';
+import type { ReplayConfiguration } from '../config/app.config';
 import { PrismaService } from '../prisma/prisma.service';
 import { QuarantineReplayService } from '../loyalty/consumers/quarantine-replay.service';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true, load: [appConfig] })],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [replayConfig],
+      skipProcessEnv: true,
+    }),
+  ],
   providers: [PrismaService, QuarantineReplayService],
 })
 class ReplayModule {}
@@ -32,10 +39,13 @@ async function main() {
   });
   const prisma = app.get(PrismaService);
   try {
-    const config = app.get(ConfigService);
-    const connection = await connect(config.getOrThrow<string>('app.rmqUrl'), {
-      timeout: 5000,
-    });
+    const config = app.get<ConfigService<ReplayConfiguration>>(ConfigService);
+    const connection = await connect(
+      config.getOrThrow('app.rmqUrl', { infer: true }),
+      {
+        timeout: 5000,
+      },
+    );
     connection.on('error', () => {});
     try {
       const channel = await connection.createConfirmChannel();

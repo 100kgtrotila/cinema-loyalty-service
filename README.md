@@ -549,6 +549,57 @@ After startup, the service runs:
 | RabbitMQ microservice | `RMQ_QUEUE` |
 | BullMQ workers | `loyalty-queue`, `achievements-queue` |
 
+### Runtime environment validation
+
+The application validates its environment with Zod 4 during Nest dependency creation,
+before lifecycle hooks, gRPC/RabbitMQ listeners, or HTTP become available. ConfigModule
+loads one parsed snapshot; `app` and `rmqDelivery` lookup namespaces are preserved.
+Their former `registerAs` factories are now pure mappings of that snapshot. Consumers
+use inferred ConfigService types; raw process.env fallback is disabled. Missing or
+invalid settings stop startup with variable names only, without secret values.
+
+| Variables | Required / default | Validation |
+| --- | --- | --- |
+| `DATABASE_URL` | Required | `postgres://` or `postgresql://`; host or PostgreSQL socket host query; existing credentials/query parameters supported |
+| `INTERNAL_API_KEY` | Required | Nonblank string; no new length/format requirement |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | Required | Nonblank host without scheme; TCP port 1..65535; password may explicitly be empty for passwordless Redis |
+| `PORT` | `3000` | TCP port 1..65535 |
+| `GRPC_URL` | `0.0.0.0:50051` | `host:port` or `[IPv6]:port`, TCP port 1..65535 |
+| `FRONTEND_URL` | `http://localhost:3000` | Single HTTP(S) origin, no credentials, path (except `/`), query or fragment; normalized to URL.origin (case/default port/trailing slash); credentials/methods/headers policy unchanged |
+| `RMQ_URL` | `amqp://localhost:5672` | AMQP(S) connection URL with host; credentials and virtual hosts supported |
+| `RMQ_QUEUE` | `loyalty_ticket_purchased` | Nonblank inbound purchase/DOB queue |
+| `RMQ_LOYALTY_EVENTS_QUEUE` | `loyalty.events` | Nonblank outbound loyalty event queue, distinct from inbound |
+| `OUTBOX_PUBLISH_TIMEOUT_MS` | `10000` | Integer 1..2147483647 |
+| `OUTBOX_LEASE_MS` | `max(30000, timeout + 5000)` | Integer greater than timeout and at most 2147483647; an overflowing derived default is rejected, never clamped |
+| `OUTBOX_PUBLISH_CONCURRENCY` | `5` | Integer 1..50 |
+| `RMQ_MAX_ATTEMPTS` | `3` | Integer 1..10 |
+| `RMQ_PREFETCH` | `5` | Integer 1..50 |
+| `RMQ_RETRY_BASE_MS` | `1000` | Integer 50..60000 |
+| `RMQ_RETRY_MAX_MS` | `30000` | Integer at least retry base, at most 300000 |
+| `RMQ_DELIVERY_LEASE_MS` | `30000` | Integer 10000..300000 |
+
+Numeric environment strings must contain decimal digits only. Empty strings, fractions,
+partial values such as `3000oops`, scientific/hexadecimal notation, NaN and Infinity
+are rejected. Defaults apply to absent optional variables, not explicit empty values.
+Before updating, check deployment values against this table: blank credentials/hosts,
+malformed ports/URLs, or a wildcard/path in FRONTEND_URL now cause an early error rather
+than a later connection failure or ineffective CORS behavior. No new variable is required
+for an already correctly configured application. Redis remains explicitly passwordless
+when REDIS_PASSWORD is present but empty. Validation checks syntax, not connectivity,
+credential strength, TLS availability or broker permissions.
+
+Prisma CLI still loads DATABASE_URL through prisma.config.ts independently of Nest;
+generate/build do not require application secrets. Quarantine replay validates only
+DATABASE_URL, RMQ_URL and RMQ_QUEUE and does not require Redis, the API key or HTTP settings.
+NODE_ENV/NODE_OPTIONS are Node/tool settings; JWT_SECRET is unused by this service and
+is not required. Runner-only INTEGRATION_*, RMQ_TEST_*, E2E_* and MONOLITH_REPO values are
+not application configuration. Unknown environment keys are ignored and never included
+in the parsed config. Do not print the parsed configuration: it contains credentials.
+
+No schema/data migration or coordinated broker change is needed for this configuration
+update. Retain the previous image/config for rollback; reverting does not undo events
+already committed by either application version.
+
 ## Scripts
 
 | Command | Purpose |

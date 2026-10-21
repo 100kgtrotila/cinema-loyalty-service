@@ -1,3 +1,4 @@
+import type { RuntimeConfiguration } from '../config/app.config';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RpcException } from '@nestjs/microservices';
@@ -8,9 +9,12 @@ import { GrpcStatus } from 'src/common/grpc-status';
 export class GrpcApiKeyGuard implements CanActivate {
   private readonly expectedKey: string;
 
-  constructor(private readonly configService: ConfigService) {
-    this.expectedKey =
-      this.configService.getOrThrow<string>('INTERNAL_API_KEY');
+  constructor(
+    private readonly configService: ConfigService<RuntimeConfiguration>,
+  ) {
+    this.expectedKey = this.configService.getOrThrow('INTERNAL_API_KEY', {
+      infer: true,
+    });
   }
 
   canActivate(context: ExecutionContext): boolean {

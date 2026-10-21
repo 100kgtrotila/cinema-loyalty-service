@@ -1,3 +1,4 @@
+import type { ReplayConfiguration } from '../../config/app.config';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { ConfirmChannel } from 'amqplib';
@@ -27,7 +28,7 @@ const PropertiesSchema = z.object({
 export class QuarantineReplayService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
+    private readonly config: ConfigService<ReplayConfiguration>,
   ) {}
 
   async replay(
@@ -40,7 +41,7 @@ export class QuarantineReplayService {
     const record = await this.prisma.inboundDelivery.findUniqueOrThrow({
       where: { id },
     });
-    const queue = this.config.getOrThrow<string>('app.rmqQueue');
+    const queue = this.config.getOrThrow('app.rmqQueue', { infer: true });
     if (
       record.sourceQueue !== queue ||
       !record.originalBody ||

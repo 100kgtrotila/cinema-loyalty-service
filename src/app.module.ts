@@ -6,13 +6,13 @@ import { PrismaModule } from './prisma/prisma.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import appConfig from './config/app.config';
-import rmqDeliveryConfig from './config/rmq-delivery.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, rmqDeliveryConfig],
+      load: [appConfig],
+      skipProcessEnv: true,
     }),
     PrismaModule,
     LoyaltyModule,

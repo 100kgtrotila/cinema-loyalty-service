@@ -8,7 +8,7 @@
 2. Confirm CI is green (lint, build, unit, integration, proto/contract where applicable).
 3. Inspect proposed migration SQL for destructive operations, lock time and backward compatibility; confirm recent DB backup and rollback strategy.
 4. Check queue backlog, error rate, database performance and available capacity.
-5. Confirm required secrets/configuration are available without printing values.
+5. Confirm required secrets/configuration are available without printing values. Check the README Runtime environment validation table before promotion: malformed numeric values, blank required settings, unsupported binding URLs or invalid timeout/lease combinations fail startup before transports open. Redis password may explicitly be empty for passwordless installations. This configuration change needs no database migration; Prisma CLI and quarantine replay retain their separate minimal environments.
 
 ## Deployment
 
