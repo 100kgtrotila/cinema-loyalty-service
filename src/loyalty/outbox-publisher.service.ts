@@ -1,3 +1,4 @@
+import type { RuntimeConfiguration } from '../config/app.config';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { EventEmitter2 } from 'eventemitter2';
@@ -19,7 +20,7 @@ export class OutboxPublisherService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emitter: EventEmitter2,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService<RuntimeConfiguration>,
   ) {}
 
   @Cron(CRON_SCHEDULES.EVERY_5_SECONDS, { waitForCompletion: true })
@@ -29,8 +30,9 @@ export class OutboxPublisherService {
     try {
       await this.recoverExpiredClaims();
       await this.failExhaustedPending();
-      const concurrency = this.configService.getOrThrow<number>(
+      const concurrency = this.configService.getOrThrow(
         'app.outboxPublishConcurrency',
+        { infer: true },
       );
       for (let claimed = 0; claimed < BATCH_SIZE; ) {
         // Claim only an immediately runnable wave: no leased rows wait in a
@@ -99,7 +101,9 @@ export class OutboxPublisherService {
   }
 
   private async claimEvents(limit: number): Promise<RawOutboxEvent[]> {
-    const leaseMs = this.configService.getOrThrow<number>('app.outboxLeaseMs');
+    const leaseMs = this.configService.getOrThrow('app.outboxLeaseMs', {
+      infer: true,
+    });
     return this.prisma.$queryRaw<RawOutboxEvent[]>`
       UPDATE outbox_events
       SET status = 'PROCESSING'::"OutboxEventStatus",
@@ -118,8 +122,9 @@ export class OutboxPublisherService {
   }
 
   private async processEvent(event: RawOutboxEvent): Promise<void> {
-    const timeoutMs = this.configService.getOrThrow<number>(
+    const timeoutMs = this.configService.getOrThrow(
       'app.outboxPublishTimeoutMs',
+      { infer: true },
     );
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {

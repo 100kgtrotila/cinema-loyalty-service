@@ -1,3 +1,4 @@
+import type { RuntimeConfiguration } from '../config/app.config';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
@@ -16,7 +17,7 @@ export class AchievementIntentPublisher {
   constructor(
     private readonly prisma: PrismaService,
     private readonly achievements: AchievementsService,
-    private readonly config: ConfigService,
+    private readonly config: ConfigService<RuntimeConfiguration>,
   ) {}
 
   @Cron(CRON_SCHEDULES.EVERY_5_SECONDS, { waitForCompletion: true })
@@ -42,9 +43,9 @@ export class AchievementIntentPublisher {
   private async publish(intent: AchievementDispatchIntent): Promise<void> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const timeoutMs = this.config.getOrThrow<number>(
-        'app.outboxPublishTimeoutMs',
-      );
+      const timeoutMs = this.config.getOrThrow('app.outboxPublishTimeoutMs', {
+        infer: true,
+      });
       const event = ActionEventSchema.parse(intent.payload);
       await Promise.race([
         this.achievements.dispatchEvent(event, intent.id),

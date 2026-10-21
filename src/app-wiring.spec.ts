@@ -31,7 +31,16 @@ class PrismaConnectionProbe {
 describe('Application provider ownership', () => {
   let module: TestingModule;
   const emit = jest.fn<(...args: unknown[]) => ReturnType<typeof of>>();
+  const originalEnv = process.env;
   beforeEach(async () => {
+    process.env = {
+      ...originalEnv,
+      DATABASE_URL: 'postgresql://fixture.invalid/unused',
+      REDIS_HOST: '127.0.0.1',
+      REDIS_PORT: '6379',
+      REDIS_PASSWORD: 'unused',
+      INTERNAL_API_KEY: 'fixture',
+    };
     PrismaConnectionProbe.connected.clear();
     emit.mockReset().mockReturnValue(of(undefined));
     module = await Test.createTestingModule({ imports: [AppModule] })
@@ -72,6 +81,7 @@ describe('Application provider ownership', () => {
     await module.init();
   });
   afterEach(async () => {
+    process.env = originalEnv;
     await module?.close();
   });
 

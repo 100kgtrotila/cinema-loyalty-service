@@ -1,3 +1,4 @@
+import type { RuntimeConfiguration } from './config/app.config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
@@ -5,7 +6,6 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { ConfigService } from '@nestjs/config';
 import { INestApplication, Logger } from '@nestjs/common';
-import { AppConfig } from './interfaces/app-config.inteface';
 import { configureHttp } from './config/configure-http';
 
 export function resolveProtoPath(): string {
@@ -25,16 +25,22 @@ export async function bootstrap(): Promise<void> {
   let stage = 'dependency creation';
   try {
     app = await NestFactory.create(AppModule, { abortOnError: false });
-    const configService = app.get(ConfigService);
-    const appConfig = configService.getOrThrow<AppConfig>('app');
-    const frontendUrl = configService.get<string>('FRONTEND_URL');
-    configureHttp(app, frontendUrl ?? 'http://localhost:3000');
+    const configService =
+      app.get<ConfigService<RuntimeConfiguration>>(ConfigService);
+    const appConfig = configService.getOrThrow('app', { infer: true });
+    const frontendUrl = configService.getOrThrow('FRONTEND_URL', {
+      infer: true,
+    });
+    configureHttp(app, frontendUrl);
 
     stage = 'protobuf asset validation (restore src/proto or rebuild dist)';
     const protoPath = resolveProtoPath();
     app.connectMicroservice<MicroserviceOptions>({
       transport: Transport.GRPC,
       options: { package: 'loyalty.v1', protoPath, url: appConfig.grpcUrl },
+    });
+    const prefetchCount = configService.getOrThrow('rmqDelivery.prefetch', {
+      infer: true,
     });
     app.connectMicroservice<MicroserviceOptions>({
       transport: Transport.RMQ,
@@ -43,7 +49,7 @@ export async function bootstrap(): Promise<void> {
         queue: appConfig.rmqQueue,
         queueOptions: { durable: true },
         noAck: false,
-        prefetchCount: configService.getOrThrow<number>('rmqDelivery.prefetch'),
+        prefetchCount,
       },
     });
 

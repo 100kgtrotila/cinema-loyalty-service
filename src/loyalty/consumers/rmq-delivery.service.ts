@@ -1,3 +1,4 @@
+import type { RuntimeConfiguration } from '../../config/app.config';
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RmqContext } from '@nestjs/microservices';
@@ -54,10 +55,10 @@ export class RmqDeliveryService implements OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    config: ConfigService,
+    config: ConfigService<RuntimeConfiguration>,
   ) {
-    this.options = config.getOrThrow<RmqDeliveryConfig>('rmqDelivery');
-    this.queue = config.getOrThrow<string>('app.rmqQueue');
+    this.options = config.getOrThrow('rmqDelivery', { infer: true });
+    this.queue = config.getOrThrow('app.rmqQueue', { infer: true });
   }
 
   onModuleDestroy() {
