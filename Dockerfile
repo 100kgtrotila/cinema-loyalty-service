@@ -4,15 +4,15 @@ WORKDIR /app
 
 FROM bun-base AS builder
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts
 COPY . .
-RUN bun x prisma generate
+RUN bun x --no-install prisma generate
 RUN bun run build
 
 FROM bun-base AS runner
 ENV NODE_ENV=production
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile --ignore-scripts --production
 COPY --from=builder --chown=node:node /app/dist ./dist
 USER node
 EXPOSE 3000
