@@ -10,7 +10,7 @@ import appConfig, {
 import type { RuntimeConfiguration } from './app.config';
 import { getBullConfig } from './bullmq.config';
 import { getRabbitMqConfig } from './rabbitmq.config';
-import { bootstrap } from '../main';
+import { bootstrap } from '../bootstrap/bootstrap';
 import { configureHttp } from './configure-http';
 import request from 'supertest';
 import type { INestApplication } from '@nestjs/common';

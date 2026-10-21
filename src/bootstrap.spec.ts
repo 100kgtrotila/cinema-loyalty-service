@@ -17,6 +17,7 @@ import {
   CustomTransportStrategy,
   MicroserviceOptions,
   Server,
+  Transport,
 } from '@nestjs/microservices';
 import { EventEmitterModule, OnEvent } from '@nestjs/event-emitter';
 import { EventEmitter2 } from 'eventemitter2';
@@ -25,7 +26,8 @@ import request from 'supertest';
 import type { Server as HttpServer } from 'node:http';
 import fs from 'node:fs';
 import { createServer } from 'node:http';
-import { bootstrap, resolveProtoPath } from './main';
+import { bootstrap } from './bootstrap/bootstrap';
+import { resolveProtoPath } from './bootstrap/resolve-proto-path';
 
 @Injectable()
 class LifecycleDependency
@@ -132,17 +134,20 @@ describe('Application bootstrap boundary', () => {
     const connect = application.connectMicroservice.bind(application) as (
       options: MicroserviceOptions,
     ) => INestMicroservice;
-    jest.spyOn(application, 'connectMicroservice').mockImplementation(() => {
-      const transport = new StartupTransport(
-        module.get(LifecycleDependency),
-        module.get(EventEmitter2),
-        failTransport && transports.length === 1,
-      );
-      transports.push(transport);
-      return connect({ strategy: transport });
-    });
+    const connectSpy = jest
+      .spyOn(application, 'connectMicroservice')
+      .mockImplementation(() => {
+        const transport = new StartupTransport(
+          module.get(LifecycleDependency),
+          module.get(EventEmitter2),
+          failTransport && transports.length === 1,
+        );
+        transports.push(transport);
+        return connect({ strategy: transport });
+      });
     return {
       application,
+      connectSpy,
       transports,
       dependency: module.get(LifecycleDependency),
       listener: module.get(StartupListener),
@@ -153,6 +158,24 @@ describe('Application bootstrap boundary', () => {
     const context = await fixture();
     await bootstrap();
     expect(context.transports).toHaveLength(2);
+    expect(context.connectSpy).toHaveBeenNthCalledWith(1, {
+      transport: Transport.GRPC,
+      options: {
+        package: 'loyalty.v1',
+        protoPath: resolveProtoPath(),
+        url: '127.0.0.1:0',
+      },
+    });
+    expect(context.connectSpy).toHaveBeenNthCalledWith(2, {
+      transport: Transport.RMQ,
+      options: {
+        urls: ['amqp://fixture.invalid'],
+        queue: 'fixture',
+        queueOptions: { durable: true },
+        noAck: false,
+        prefetchCount: 5,
+      },
+    });
     for (const transport of context.transports) {
       expect(transport.observedInitialized).toBe(true);
       expect(transport.observedBootstrapped).toBe(true);
