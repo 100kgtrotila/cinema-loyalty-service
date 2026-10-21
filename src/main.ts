@@ -35,6 +35,8 @@ export async function bootstrap(): Promise<void> {
 
     stage = 'protobuf asset validation (restore src/proto or rebuild dist)';
     const protoPath = resolveProtoPath();
+    // HTTP global validation is intentionally not inherited. gRPC controllers
+    // use RPC pipes/filters; RMQ validates inside its durable delivery handler.
     app.connectMicroservice<MicroserviceOptions>({
       transport: Transport.GRPC,
       options: { package: 'loyalty.v1', protoPath, url: appConfig.grpcUrl },

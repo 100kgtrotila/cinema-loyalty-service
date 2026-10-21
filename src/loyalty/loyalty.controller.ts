@@ -1,5 +1,19 @@
-import { Controller, forwardRef, Inject, UseGuards } from '@nestjs/common';
-import { GrpcMethod } from '@nestjs/microservices';
+import {
+  GrpcRequestPipe,
+  userRequestSchema,
+  goldRequestSchema,
+  discountRequestSchema,
+  adminUsersRequestSchema,
+} from '../common/grpc-request.pipe';
+import { GrpcExceptionFilter } from '../common/grpc-exception.filter';
+import {
+  Controller,
+  forwardRef,
+  Inject,
+  UseGuards,
+  UseFilters,
+} from '@nestjs/common';
+import { GrpcMethod, Payload } from '@nestjs/microservices';
 import { LoyaltyService } from './loyalty.service';
 import { LoyaltyExpirationService } from './loyalty-expiration.service';
 import { GrpcApiKeyGuard } from 'src/guards/grpc-api-key.guard';
@@ -17,6 +31,7 @@ import { AdminLoyaltyService } from './admin-loyalty.service';
 
 @Controller()
 @UseGuards(GrpcApiKeyGuard)
+@UseFilters(GrpcExceptionFilter)
 export class LoyaltyController {
   constructor(
     private readonly loyaltyService: LoyaltyService,
@@ -27,17 +42,29 @@ export class LoyaltyController {
   ) {}
 
   @GrpcMethod('LoyaltyService', 'GetBalance')
-  getBalance(data: GetBalanceRequest) {
+  getBalance(
+    @Payload(new GrpcRequestPipe(userRequestSchema)) data: GetBalanceRequest,
+  ) {
     return this.loyaltyService.getBalance(data.userId);
   }
 
   @GrpcMethod('LoyaltyService', 'GetFullProfile')
-  getFullProfile(data: GetFullProfileRequest) {
+  getFullProfile(
+    @Payload(new GrpcRequestPipe(userRequestSchema))
+    data: GetFullProfileRequest,
+  ) {
     return this.loyaltyService.getFullProfile(data.userId);
   }
 
   @GrpcMethod('LoyaltyService', 'GetTransactions')
-  getTransactions(data: { userId: string; limit?: number; skip?: number }) {
+  getTransactions(
+    @Payload(new GrpcRequestPipe(userRequestSchema))
+    data: {
+      userId: string;
+      limit?: number;
+      skip?: number;
+    },
+  ) {
     return this.loyaltyService.getUserTransactions(
       data.userId,
       data.limit ?? 20,
@@ -56,12 +83,18 @@ export class LoyaltyController {
   }
 
   @GrpcMethod('LoyaltyService', 'UseGoldUpgrade')
-  useGoldUpgrade(data: UseGoldUpgradeRequest) {
+  useGoldUpgrade(
+    @Payload(new GrpcRequestPipe(goldRequestSchema))
+    data: UseGoldUpgradeRequest,
+  ) {
     return this.loyaltyService.useGoldUpgrade(data.userId, data.orderId);
   }
 
   @GrpcMethod('LoyaltyService', 'CalculateDiscount')
-  calculateDiscount(data: CalculateDiscountRequest) {
+  calculateDiscount(
+    @Payload(new GrpcRequestPipe(discountRequestSchema))
+    data: CalculateDiscountRequest,
+  ) {
     return this.loyaltyService.calculateDiscount(data.userId, data.orderAmount);
   }
 
@@ -77,22 +110,28 @@ export class LoyaltyController {
 
   @GrpcMethod('LoyaltyService', 'RollbackGoldUpgrade')
   async rollbackGoldUpgrade(
+    @Payload(new GrpcRequestPipe(goldRequestSchema))
     data: RollbackGoldUpgradeRequest,
   ): Promise<RollbackGoldUpgradeResponse> {
     return this.loyaltyService.rollbackGoldUpgrade(data.userId, data.orderId);
   }
 
   @GrpcMethod('LoyaltyService', 'GetAdminUserBalance')
-  async getAdminUserBalance(data: { userId: string }) {
+  async getAdminUserBalance(
+    @Payload(new GrpcRequestPipe(userRequestSchema)) data: { userId: string },
+  ) {
     return this.adminLoyaltyService.getUserBalanceGrpc(data.userId);
   }
 
   @GrpcMethod('LoyaltyService', 'GetAdminTransactionHistory')
-  async getAdminTransactionHistory(data: {
-    userId: string;
-    limit?: number;
-    skip?: number;
-  }) {
+  async getAdminTransactionHistory(
+    @Payload(new GrpcRequestPipe(userRequestSchema))
+    data: {
+      userId: string;
+      limit?: number;
+      skip?: number;
+    },
+  ) {
     return this.adminLoyaltyService.getTransactionHistoryGrpc(
       data.userId,
       data.limit ?? 50,
@@ -101,12 +140,15 @@ export class LoyaltyController {
   }
 
   @GrpcMethod('LoyaltyService', 'ModifyUserPoints')
-  async modifyUserPoints(data: {
-    userId: string;
-    adminId: string;
-    points: number;
-    reason: string;
-  }) {
+  async modifyUserPoints(
+    @Payload(new GrpcRequestPipe(userRequestSchema))
+    data: {
+      userId: string;
+      adminId: string;
+      points: number;
+      reason: string;
+    },
+  ) {
     return this.adminLoyaltyService.modifyPointsGrpc(
       data.userId,
       data.adminId,
@@ -116,12 +158,15 @@ export class LoyaltyController {
   }
 
   @GrpcMethod('LoyaltyService', 'GetAdminUsers')
-  async getAdminUsers(data: {
-    limit?: number;
-    skip?: number;
-    tierFilter?: string;
-    userIds?: string[];
-  }) {
+  async getAdminUsers(
+    @Payload(new GrpcRequestPipe(adminUsersRequestSchema))
+    data: {
+      limit?: number;
+      skip?: number;
+      tierFilter?: string;
+      userIds?: string[];
+    },
+  ) {
     return this.adminLoyaltyService.getUsersGrpc(
       data.limit ?? 50,
       data.skip ?? 0,
@@ -131,11 +176,14 @@ export class LoyaltyController {
   }
 
   @GrpcMethod('LoyaltyService', 'GrantVipStatus')
-  async grantVipStatus(data: {
-    userId: string;
-    adminId: string;
-    reason: string;
-  }) {
+  async grantVipStatus(
+    @Payload(new GrpcRequestPipe(userRequestSchema))
+    data: {
+      userId: string;
+      adminId: string;
+      reason: string;
+    },
+  ) {
     return this.adminLoyaltyService.grantVipStatusGrpc(
       data.userId,
       data.adminId,

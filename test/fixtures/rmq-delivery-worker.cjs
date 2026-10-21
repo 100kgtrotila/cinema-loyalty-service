@@ -3,6 +3,7 @@ const { ConfigService } = require('@nestjs/config');
 const { RmqContext } = require('@nestjs/microservices');
 const { EventEmitter2 } = require('eventemitter2');
 const amqp = require('amqplib');
+const { EventPatternType } = require('../../dist/loyalty/enums/loyalty.enums');
 const { PrismaService } = require('../../dist/prisma/prisma.service');
 const { LoyaltyService } = require('../../dist/loyalty/loyalty.service');
 const {
@@ -129,7 +130,10 @@ void (async () => {
       notify(message.fields.redelivered ? 'redelivered' : 'delivered');
       const packet = JSON.parse(message.content.toString());
       const context = new RmqContext([message, channel, packet.pattern]);
-      const handler = packet.pattern === 'UserDateOfBirthSet' ? dob : purchase;
+      const handler =
+        packet.pattern === EventPatternType.USER_DATE_OF_BIRTH_SET
+          ? dob
+          : purchase;
       void handler
         .handle(packet.data, context)
         .then(() => notify('handled'))

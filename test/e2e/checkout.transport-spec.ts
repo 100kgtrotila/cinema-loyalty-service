@@ -5,6 +5,8 @@ import { spawnSync } from 'node:child_process';
 import { Pool } from 'pg';
 import Redis from 'ioredis';
 import { connect } from 'amqplib';
+import { EventPatternType } from 'src/loyalty/enums/loyalty.enums';
+import { inboundDeliveryId } from 'src/loyalty/consumers/rmq-delivery.service';
 
 // cinema-platform-back domain enums; order and ticket states are distinct.
 const OrderStatus = {
@@ -876,4 +878,236 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       ]),
     });
   });
+  it.each([
+    EventPatternType.TICKET_PURCHASED,
+    EventPatternType.USER_DATE_OF_BIRTH_SET,
+  ])(
+    'durably quarantines malformed %s in the production Nest consumer without blocking later events',
+    async (pattern) => {
+      const invalidUserId = randomUUID();
+      const eventId = randomUUID();
+      const payload =
+        pattern === EventPatternType.TICKET_PURCHASED
+          ? {
+              eventId,
+              orderId: eventId,
+              userId: invalidUserId,
+              totalAmount: 'PRIVATE_INVALID_AMOUNT',
+            }
+          : {
+              userId: invalidUserId,
+              dateOfBirth: 42,
+              email: 'private@example.invalid',
+            };
+      const envelope = Buffer.from(JSON.stringify({ pattern, data: payload }));
+      const deliveryId = inboundDeliveryId(
+        'loyalty_ticket_purchased',
+        envelope,
+      );
+      const connection = await connect(required('E2E_RABBIT_URL'));
+      const channel = await connection.createConfirmChannel();
+      const queueState = async () => {
+        const response = await fetch(
+          required('E2E_RABBIT_HTTP') +
+            '/api/queues/%2F/loyalty_ticket_purchased',
+          {
+            headers: {
+              Authorization:
+                'Basic ' + Buffer.from('guest:guest').toString('base64'),
+            },
+          },
+        );
+        if (!response.ok) throw new Error('Disposable queue inspection failed');
+        const state: unknown = await response.json();
+        if (typeof state !== 'object' || state === null)
+          throw new Error('Invalid queue state');
+        const stats: unknown =
+          'message_stats' in state ? state.message_stats : undefined;
+        return {
+          ack:
+            typeof stats === 'object' &&
+            stats !== null &&
+            'ack' in stats &&
+            typeof stats.ack === 'number'
+              ? stats.ack
+              : 0,
+          ready:
+            'messages_ready' in state &&
+            typeof state.messages_ready === 'number'
+              ? state.messages_ready
+              : -1,
+          unacked:
+            'messages_unacknowledged' in state &&
+            typeof state.messages_unacknowledged === 'number'
+              ? state.messages_unacknowledged
+              : -1,
+        };
+      };
+      const beforeAck = (await queueState()).ack;
+      try {
+        channel.sendToQueue('loyalty_ticket_purchased', envelope, {
+          persistent: true,
+          messageId: eventId,
+        });
+        await channel.waitForConfirms();
+        await eventually(
+          async () =>
+            (
+              await loyalty.query(
+                'SELECT id FROM inbound_deliveries WHERE id=$1 AND quarantined_at IS NOT NULL',
+                [deliveryId],
+              )
+            ).rowCount === 1,
+          'permanent payload quarantined by production consumer',
+        );
+        const state = await loyalty.query(
+          'SELECT attempts, error_code, completed_at, original_body FROM inbound_deliveries WHERE id=$1',
+          [deliveryId],
+        );
+        expect(state.rows[0]).toMatchObject({
+          attempts: 1,
+          completed_at: null,
+          error_code:
+            pattern === EventPatternType.TICKET_PURCHASED
+              ? 'INVALID_PURCHASE_PAYLOAD'
+              : 'INVALID_DOB_PAYLOAD',
+          original_body: envelope,
+        });
+        for (const table of [
+          'loyalty_profiles',
+          'points_transactions',
+          'achievement_dispatch_intents',
+        ])
+          expect(
+            (
+              await loyalty.query(
+                `SELECT user_id FROM ${table} WHERE user_id=$1`,
+                [invalidUserId],
+              )
+            ).rowCount,
+          ).toBe(0);
+        expect(
+          (
+            await loyalty.query(
+              'SELECT event_id FROM processed_events WHERE event_id=$1',
+              [eventId],
+            )
+          ).rowCount,
+        ).toBe(0);
+        expect(
+          (
+            await loyalty.query(
+              'SELECT id FROM outbox_events WHERE aggregate_id=$1',
+              [invalidUserId],
+            )
+          ).rowCount,
+        ).toBe(0);
+
+        // A separate user's valid event continues through the same running Nest/RMQ
+        // boundary; no metadata stripping, poison-message loop or process restart.
+        const healthyUserId = randomUUID();
+        const healthyOrderId = randomUUID();
+        if (pattern === EventPatternType.USER_DATE_OF_BIRTH_SET) {
+          const dateOfBirth = new Date(
+            Date.UTC(2000, (new Date().getUTCMonth() + 6) % 12, 15),
+          )
+            .toISOString()
+            .slice(0, 10);
+          const dobEnvelope = Buffer.from(
+            JSON.stringify({
+              pattern: EventPatternType.USER_DATE_OF_BIRTH_SET,
+              data: {
+                userId: healthyUserId,
+                dateOfBirth,
+                occurredAtUtc: new Date().toISOString(),
+              },
+            }),
+          );
+          channel.sendToQueue('loyalty_ticket_purchased', dobEnvelope, {
+            persistent: true,
+          });
+          await channel.waitForConfirms();
+          await eventually(
+            async () =>
+              (
+                await loyalty.query(
+                  'SELECT id FROM inbound_deliveries WHERE id=$1 AND completed_at IS NOT NULL',
+                  [inboundDeliveryId('loyalty_ticket_purchased', dobEnvelope)],
+                )
+              ).rowCount === 1,
+            'valid canonical DOB event commits',
+          );
+          expect(
+            (
+              await loyalty.query(
+                'SELECT birthday_date::text FROM loyalty_profiles WHERE user_id=$1',
+                [healthyUserId],
+              )
+            ).rows[0],
+          ).toEqual({ birthday_date: dateOfBirth });
+        }
+        const healthy = Buffer.from(
+          JSON.stringify({
+            pattern: 'TicketPurchased',
+            data: {
+              eventId: healthyOrderId,
+              orderId: healthyOrderId,
+              userId: healthyUserId,
+              totalAmount: 200,
+              ticketAmount: 200,
+              foodAmount: 0,
+              paidAmount: 200,
+              pointsUsed: 0,
+              eventType: 'STANDARD',
+              purchasedAt: new Date().toISOString(),
+              email: 'compatible-extra-metadata@example.invalid',
+            },
+          }),
+        );
+        channel.sendToQueue('loyalty_ticket_purchased', healthy, {
+          persistent: true,
+        });
+        await channel.waitForConfirms();
+        await eventually(
+          async () =>
+            (
+              await loyalty.query(
+                'SELECT event_id FROM processed_events WHERE event_id=$1',
+                [healthyOrderId],
+              )
+            ).rowCount === 1,
+          'valid event after malformed payload commits',
+        );
+        expect(
+          (
+            await loyalty.query(
+              'SELECT balance, year_visits FROM loyalty_profiles WHERE user_id=$1',
+              [healthyUserId],
+            )
+          ).rows[0],
+        ).toEqual({ balance: 200, year_visits: 1 });
+        expect(
+          (
+            await loyalty.query(
+              'SELECT points FROM points_transactions WHERE user_id=$1',
+              [healthyUserId],
+            )
+          ).rows,
+        ).toEqual([{ points: 200 }]);
+        await eventually(async () => {
+          const state = await queueState();
+          return (
+            state.ack >=
+              beforeAck +
+                (pattern === EventPatternType.USER_DATE_OF_BIRTH_SET ? 3 : 2) &&
+            state.unacked === 0 &&
+            state.ready === 0
+          );
+        }, 'production consumer ACKs malformed quarantined and valid committed events');
+      } finally {
+        await channel.close();
+        await connection.close();
+      }
+    },
+  );
 });
