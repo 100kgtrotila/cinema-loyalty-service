@@ -1,0 +1,11 @@
+{
+  "rootDir": "../..",
+  "testEnvironment": "node",
+  "testRegex": "test/rmq/.*\\.transport-spec\\.ts$",
+  "testTimeout": 30000,
+  "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/src/$1",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  }
+}

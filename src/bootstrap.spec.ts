@@ -118,6 +118,7 @@ describe('Application bootstrap boundary', () => {
               rmqQueue: 'fixture',
             },
             FRONTEND_URL: 'https://cinema.example.invalid',
+            rmqDelivery: { prefetch: 5 },
           }),
         },
       ],

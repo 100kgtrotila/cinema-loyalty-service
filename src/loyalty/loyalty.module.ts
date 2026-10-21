@@ -22,6 +22,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { OutboxPublisherService } from './outbox-publisher.service';
 import { AchievementsModule } from 'src/achievements/achievements.module';
 import { AdminLoyaltyService } from './admin-loyalty.service';
+import { RmqDeliveryService } from './consumers/rmq-delivery.service';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AdminLoyaltyService } from './admin-loyalty.service';
     LoyaltyCalculatorService,
     OutboxPublisherService,
     AdminLoyaltyService,
+    RmqDeliveryService,
   ],
   exports: [LoyaltyService, LoyaltyCalculatorService],
 })

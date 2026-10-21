@@ -34,6 +34,20 @@ interface PointResult {
   errorMessage: string;
 }
 interface PointRpc {
+  getAdminUsers(
+    request: {
+      limit?: number;
+      skip?: number;
+      tierFilter?: string;
+      userIds?: string[];
+    },
+    metadata: Metadata,
+  ): Observable<{ profiles: { userId: string }[]; totalCount: number }>;
+  getAdminTransactionHistory(
+    request: { userId: string; limit?: number; skip?: number },
+    metadata: Metadata,
+  ): Observable<{ transactions: { id: string }[] }>;
+
   useGoldUpgrade(
     request: { userId: string; orderId: string },
     metadata: Metadata,
@@ -128,7 +142,7 @@ describe('gRPC point commands after a lost committed response', () => {
         },
         { provide: EventEmitter2, useValue: new EventEmitter2() },
         { provide: AchievementsService, useValue: {} },
-        { provide: AdminLoyaltyService, useValue: {} },
+        AdminLoyaltyService,
         { provide: INJECTION_TOKENS.RABBITMQ_LOYALTY_CLIENT, useValue: {} },
       ],
     }).compile();
@@ -169,6 +183,68 @@ describe('gRPC point commands after a lost committed response', () => {
     if (client) client.close();
     if (server) await server.close();
     if (prisma) await prisma.$disconnect();
+  });
+
+  it('enforces admin pagination across actual protobuf defaults and RPC errors', async () => {
+    const users = Array.from({ length: 101 }, () => ({
+      userId: randomUUID(),
+      tier: 'SILVER' as const,
+    }));
+    await prisma.loyaltyProfile.createMany({ data: users });
+    const ids = users.map((user) => user.userId);
+    expect(
+      (
+        await lastValueFrom(
+          rpc.getAdminUsers({ userIds: ids, tierFilter: 'SILVER' }, metadata),
+        )
+      ).profiles,
+    ).toHaveLength(50);
+    const capped = await lastValueFrom(
+      rpc.getAdminUsers(
+        { userIds: ids, limit: 100, skip: 1, tierFilter: 'SILVER' },
+        metadata,
+      ),
+    );
+    expect(capped.profiles).toHaveLength(100);
+    expect(capped.totalCount).toBe(101);
+    for (const query of [{ limit: 101 }, { limit: -1 }, { skip: -1 }]) {
+      await expect(
+        lastValueFrom(rpc.getAdminUsers(query, metadata)),
+      ).rejects.toMatchObject({ code: status.INVALID_ARGUMENT });
+      await expect(
+        lastValueFrom(
+          rpc.getAdminTransactionHistory(
+            { userId: request.userId, ...query },
+            metadata,
+          ),
+        ),
+      ).rejects.toMatchObject({ code: status.INVALID_ARGUMENT });
+    }
+    await prisma.pointsTransaction.createMany({
+      data: Array.from({ length: 101 }, () => ({
+        userId: request.userId,
+        type: 'EARN_TICKET' as const,
+        points: 1,
+        balanceAfter: 1,
+      })),
+    });
+    expect(
+      (
+        await lastValueFrom(
+          rpc.getAdminTransactionHistory({ userId: request.userId }, metadata),
+        )
+      ).transactions,
+    ).toHaveLength(50);
+    expect(
+      (
+        await lastValueFrom(
+          rpc.getAdminTransactionHistory(
+            { userId: request.userId, limit: 100, skip: 1 },
+            metadata,
+          ),
+        )
+      ).transactions,
+    ).toHaveLength(100);
   });
 
   it.each(['deductPoints', 'refundPoints'] as const)(

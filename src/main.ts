@@ -4,9 +4,9 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { ConfigService } from '@nestjs/config';
-import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
+import { INestApplication, Logger } from '@nestjs/common';
 import { AppConfig } from './interfaces/app-config.inteface';
-import { getCorsConfig } from './config/cors.config';
+import { configureHttp } from './config/configure-http';
 
 export function resolveProtoPath(): string {
   // Nest CLI copies src/proto to dist/proto; both are relative to this module.
@@ -28,11 +28,7 @@ export async function bootstrap(): Promise<void> {
     const configService = app.get(ConfigService);
     const appConfig = configService.getOrThrow<AppConfig>('app');
     const frontendUrl = configService.get<string>('FRONTEND_URL');
-    app.enableCors(getCorsConfig(frontendUrl ?? 'http://localhost:3000'));
-    app.enableShutdownHooks();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
-    );
+    configureHttp(app, frontendUrl ?? 'http://localhost:3000');
 
     stage = 'protobuf asset validation (restore src/proto or rebuild dist)';
     const protoPath = resolveProtoPath();
@@ -47,6 +43,7 @@ export async function bootstrap(): Promise<void> {
         queue: appConfig.rmqQueue,
         queueOptions: { durable: true },
         noAck: false,
+        prefetchCount: configService.getOrThrow<number>('rmqDelivery.prefetch'),
       },
     });
 

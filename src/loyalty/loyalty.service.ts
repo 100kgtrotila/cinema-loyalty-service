@@ -31,6 +31,11 @@ import {
 } from './constants/loyalty.constants';
 import { UserDateOfBirthSetEvent } from './interfaces/user-date-of-birth-set-event.interface';
 import {
+  assertAccountingInteger,
+  classifyMessageFailure,
+  PermanentMessageError,
+} from './consumers/message-failure';
+import {
   parsePointCommand,
   replayPointCommand,
   claimPointCommand,
@@ -277,7 +282,10 @@ export class LoyaltyService {
 
         if (alreadyProcessed) {
           if (alreadyProcessed.operation !== null)
-            throw new Error(ERROR_MESSAGES.IDEMPOTENCY_CONFLICT);
+            throw new PermanentMessageError(
+              'PURCHASE_IDEMPOTENCY_CONFLICT',
+              ERROR_MESSAGES.IDEMPOTENCY_CONFLICT,
+            );
           this.logger.warn(`Event ${msg.eventId} already processed. Skipping.`);
           return;
         }
@@ -298,6 +306,14 @@ export class LoyaltyService {
         const newLifetime = profile.lifetimePoints + pointsEarned;
         const newYearPoints = profile.yearPoints + pointsEarned;
         const newYearVisits = profile.yearVisits + 1;
+
+        assertAccountingInteger(pointsEarned);
+        assertAccountingInteger(newYearVisits);
+        if (pointsEarned > 0) {
+          assertAccountingInteger(newBalance);
+          assertAccountingInteger(newLifetime);
+          assertAccountingInteger(newYearPoints);
+        }
 
         const newTier = this.calculator.resolveNewTier(
           profile.tier,
@@ -404,11 +420,8 @@ export class LoyaltyService {
         ]);
       });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
-        `Failed to process ticket purchase for user ${msg.userId}: ${message}`,
-        stack,
+        `operation=TicketPurchased code=${classifyMessageFailure(error).code}`,
       );
       throw error;
     }
@@ -419,10 +432,7 @@ export class LoyaltyService {
     const now = new Date();
 
     if (!birthdayDate || isFutureUtcLocalDate(birthdayDate, now)) {
-      this.logger.warn(
-        `[${msg.userId}] Invalid DOB received: ${msg.dateOfBirth}`,
-      );
-      return;
+      throw new PermanentMessageError('INVALID_DATE_OF_BIRTH');
     }
 
     const grantYear = getUtcLocalYear(now);

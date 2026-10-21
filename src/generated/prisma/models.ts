@@ -8,6 +8,7 @@
  *
  * 🟢 You can import this file directly.
  */
+export type * from './models/InboundDelivery.js'
 export type * from './models/LoyaltyProfile.js'
 export type * from './models/ProcessedEvent.js'
 export type * from './models/PointsTransaction.js'

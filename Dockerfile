@@ -13,6 +13,7 @@ FROM bun-base AS runner
 ENV NODE_ENV=production
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
-COPY --from=builder /app/dist ./dist
+COPY --from=builder --chown=node:node /app/dist ./dist
+USER node
 EXPOSE 3000
 CMD ["node", "dist/main.js"]

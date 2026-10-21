@@ -1,53 +1,41 @@
-import { Controller, Logger } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import type { Channel, ConsumeMessage } from 'amqplib';
 import { LoyaltyService } from '../loyalty.service';
 import { UserDateOfBirthSetDto } from '../dto/user-date-of-birth-set.dto';
 import { EventPatternType } from '../enums/loyalty.enums';
+import { RmqDeliveryService } from './rmq-delivery.service';
+import { PermanentMessageError } from './message-failure';
 
 type RawDateOfBirthPayload = Record<string, unknown>;
 
 @Controller()
 export class UserDateOfBirthSetConsumer {
-  private readonly logger = new Logger(UserDateOfBirthSetConsumer.name);
-
-  constructor(private readonly loyaltyService: LoyaltyService) {}
+  constructor(
+    private readonly loyaltyService: LoyaltyService,
+    private readonly deliveries: RmqDeliveryService,
+  ) {}
 
   @EventPattern(EventPatternType.USER_DATE_OF_BIRTH_SET)
   async handle(
     @Payload() data: unknown,
     @Ctx() ctx: RmqContext,
   ): Promise<void> {
-    const channel = ctx.getChannelRef() as Channel;
-    const originalMsg = ctx.getMessage() as ConsumeMessage;
-
-    this.logger.debug(
-      `UserDateOfBirthSet message received: ${JSON.stringify(data)}`,
-    );
-
-    try {
+    await this.deliveries.handle('UserDateOfBirthSet', data, ctx, async () => {
+      if (typeof data !== 'object' || data === null || Array.isArray(data))
+        throw new PermanentMessageError('INVALID_DOB_PAYLOAD');
       const dto = plainToInstance(
         UserDateOfBirthSetDto,
         this.normalizePayload(data),
       );
-      const errors = await validate(dto);
-
-      if (errors.length > 0) {
-        this.logger.warn(
-          `Invalid DOB payload received: ${JSON.stringify(errors)}`,
-        );
-        channel.ack(originalMsg);
-        return;
-      }
-
+      const errors = await validate(dto, {
+        validationError: { target: false, value: false },
+      });
+      if (errors.length > 0)
+        throw new PermanentMessageError('INVALID_DOB_PAYLOAD');
       await this.loyaltyService.processUserDateOfBirthSet(dto);
-      channel.ack(originalMsg);
-    } catch (error) {
-      this.logger.error('Failed to process UserDateOfBirthSet:', error);
-      channel.nack(originalMsg, false, true);
-    }
+    });
   }
 
   private normalizePayload(data: unknown): unknown {

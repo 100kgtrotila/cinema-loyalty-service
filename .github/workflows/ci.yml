@@ -24,5 +24,6 @@ jobs:
       - run: bun run build
       - run: bun run test --runInBand
       - run: bun run test:integration
+      - run: bun run test:rmq
       - name: Build production image (no push)
         run: docker build --tag cinema-loyalty-service:ci .

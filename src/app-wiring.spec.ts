@@ -43,7 +43,15 @@ describe('Application provider ownership', () => {
           REDIS_PORT: 6379,
           REDIS_PASSWORD: 'unused',
           INTERNAL_API_KEY: 'fixture',
+          rmqDelivery: {
+            maxAttempts: 3,
+            prefetch: 5,
+            retryBaseMs: 1000,
+            retryMaxMs: 30000,
+            leaseMs: 30000,
+          },
           app: {
+            rmqQueue: 'fixture',
             outboxPublishTimeoutMs: 100,
             outboxLeaseMs: 1000,
             outboxPublishConcurrency: 1,

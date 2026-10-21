@@ -51,6 +51,7 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
+  InboundDelivery: 'InboundDelivery',
   LoyaltyProfile: 'LoyaltyProfile',
   ProcessedEvent: 'ProcessedEvent',
   PointsTransaction: 'PointsTransaction',
@@ -77,6 +78,30 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 } as const)
 
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
+
+
+export const InboundDeliveryScalarFieldEnum = {
+  id: 'id',
+  operation: 'operation',
+  sourceQueue: 'sourceQueue',
+  attempts: 'attempts',
+  maxAttempts: 'maxAttempts',
+  nextAttemptAt: 'nextAttemptAt',
+  leaseToken: 'leaseToken',
+  leaseExpiresAt: 'leaseExpiresAt',
+  completedAt: 'completedAt',
+  quarantineRequired: 'quarantineRequired',
+  quarantinedAt: 'quarantinedAt',
+  errorCode: 'errorCode',
+  originalBody: 'originalBody',
+  originalProperties: 'originalProperties',
+  replayId: 'replayId',
+  replayCount: 'replayCount',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type InboundDeliveryScalarFieldEnum = (typeof InboundDeliveryScalarFieldEnum)[keyof typeof InboundDeliveryScalarFieldEnum]
 
 
 export const LoyaltyProfileScalarFieldEnum = {

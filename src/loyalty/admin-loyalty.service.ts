@@ -12,6 +12,24 @@ import { GrpcStatus } from 'src/common/grpc-status';
 import { LoyaltyMapper } from 'src/utils/loyalty.mapper';
 import { Prisma, Tier } from 'src/generated/prisma/client';
 
+function adminPagination(limit = 50, skip = 0): { take: number; skip: number } {
+  const take = limit === 0 ? 50 : limit;
+  if (
+    !Number.isSafeInteger(take) ||
+    take < 1 ||
+    take > 100 ||
+    !Number.isSafeInteger(skip) ||
+    skip < 0
+  ) {
+    throw new RpcException({
+      code: GrpcStatus.INVALID_ARGUMENT,
+      message:
+        'Limit must be 0 (default 50) or 1 to 100; skip must be a non-negative integer.',
+    });
+  }
+  return { take, skip };
+}
+
 @Injectable()
 export class AdminLoyaltyService {
   private readonly logger = new Logger(AdminLoyaltyService.name);
@@ -41,11 +59,11 @@ export class AdminLoyaltyService {
     limit: number = 50,
     skip: number = 0,
   ) {
+    const pagination = adminPagination(limit, skip);
     const history = await this.prisma.pointsTransaction.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: skip,
+      ...pagination,
     });
 
     const transactions = history.map((t) => ({
@@ -172,11 +190,12 @@ export class AdminLoyaltyService {
   }
 
   async getUsersGrpc(
-    limit: number,
-    skip: number,
+    limit: number = 50,
+    skip: number = 0,
     tierFilter?: string,
     userIds?: string[],
   ) {
+    const pagination = adminPagination(limit, skip);
     const whereClause: Prisma.LoyaltyProfileWhereInput = {};
 
     if (tierFilter) {
@@ -191,8 +210,7 @@ export class AdminLoyaltyService {
       this.prisma.loyaltyProfile.findMany({
         where: whereClause,
         orderBy: { lifetimePoints: 'desc' },
-        take: limit,
-        skip: skip,
+        ...pagination,
       }),
       this.prisma.loyaltyProfile.count({ where: whereClause }),
     ]);

@@ -560,6 +560,7 @@ After startup, the service runs:
 | `bun run lint` | Run ESLint without modifying files |
 | `bun run test` | Run Jest unit and regression tests |
 | `bun run test:integration` | Run concurrency integration tests on disposable PostgreSQL 16 (Docker required) |
+| `bun run test:rmq` | Run inbound retry/quarantine/replay tests on disposable PostgreSQL and RabbitMQ (Docker required) |
 | `bun run test:transports` | Run monolith HTTP checkout and loyalty transport/recovery tests on an isolated Docker stack |
 | `bun run test:cov` | Run Jest tests with coverage |
 | `bun run test:e2e` | Run Jest e2e tests |
@@ -629,3 +630,9 @@ bull:loyalty-queue:failed
 ## License
 
 Internal / UNLICENSED.
+
+## Admin pagination and runtime
+
+Admin transaction history and user lists enforce a maximum page size of 100 in loyalty itself. Omitted limit or protobuf `limit=0` selects 50; limits 1–100 are accepted. Negative, fractional, non-finite or over-limit values return gRPC `INVALID_ARGUMENT`. Omitted/zero skip selects 0; negative/fractional/non-finite skip is rejected. Existing filters and total counts are unchanged. Current monolith admin validators already require limit 1–100 and nonnegative skip.
+
+The production image runs compiled Node.js 22 as the existing unprivileged `node` user (UID/GID 1000). Install/build and migrations remain separate from application startup. Dist artifacts are owned by `node`; dependencies are readable without application write access. Container startup requires existing PostgreSQL/Redis/RabbitMQ configuration and schema. The image does not require privileged ports. HTTP uses a single configured CORS policy; CORS is browser response policy, not authentication or network encryption.

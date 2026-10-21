@@ -603,10 +603,6 @@ export type AchievementScalarRelationFilter = {
   isNot?: Prisma.AchievementWhereInput
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type EnumAchievementCategoryFieldUpdateOperationsInput = {
   set?: $Enums.AchievementCategory
 }

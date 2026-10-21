@@ -384,6 +384,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 
 export const ModelName = {
+  InboundDelivery: 'InboundDelivery',
   LoyaltyProfile: 'LoyaltyProfile',
   ProcessedEvent: 'ProcessedEvent',
   PointsTransaction: 'PointsTransaction',
@@ -409,10 +410,84 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "checkoutDebit" | "goldUpgradeReservation" | "userBonusGrant" | "outboxEvent" | "achievementDispatchIntent" | "achievement" | "userAchievement"
+    modelProps: "inboundDelivery" | "loyaltyProfile" | "processedEvent" | "pointsTransaction" | "checkoutDebit" | "goldUpgradeReservation" | "userBonusGrant" | "outboxEvent" | "achievementDispatchIntent" | "achievement" | "userAchievement"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
+    InboundDelivery: {
+      payload: Prisma.$InboundDeliveryPayload<ExtArgs>
+      fields: Prisma.InboundDeliveryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.InboundDeliveryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InboundDeliveryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.InboundDeliveryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InboundDeliveryPayload>
+        }
+        findFirst: {
+          args: Prisma.InboundDeliveryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InboundDeliveryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.InboundDeliveryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InboundDeliveryPayload>
+        }
+        findMany: {
+          args: Prisma.InboundDeliveryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InboundDeliveryPayload>[]
+        }
+        create: {
+          args: Prisma.InboundDeliveryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InboundDeliveryPayload>
+        }
+        createMany: {
+          args: Prisma.InboundDeliveryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.InboundDeliveryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InboundDeliveryPayload>[]
+        }
+        delete: {
+          args: Prisma.InboundDeliveryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InboundDeliveryPayload>
+        }
+        update: {
+          args: Prisma.InboundDeliveryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InboundDeliveryPayload>
+        }
+        deleteMany: {
+          args: Prisma.InboundDeliveryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.InboundDeliveryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.InboundDeliveryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InboundDeliveryPayload>[]
+        }
+        upsert: {
+          args: Prisma.InboundDeliveryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$InboundDeliveryPayload>
+        }
+        aggregate: {
+          args: Prisma.InboundDeliveryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateInboundDelivery>
+        }
+        groupBy: {
+          args: Prisma.InboundDeliveryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.InboundDeliveryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.InboundDeliveryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.InboundDeliveryCountAggregateOutputType> | number
+        }
+      }
+    }
     LoyaltyProfile: {
       payload: Prisma.$LoyaltyProfilePayload<ExtArgs>
       fields: Prisma.LoyaltyProfileFieldRefs
@@ -1192,6 +1267,30 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
+export const InboundDeliveryScalarFieldEnum = {
+  id: 'id',
+  operation: 'operation',
+  sourceQueue: 'sourceQueue',
+  attempts: 'attempts',
+  maxAttempts: 'maxAttempts',
+  nextAttemptAt: 'nextAttemptAt',
+  leaseToken: 'leaseToken',
+  leaseExpiresAt: 'leaseExpiresAt',
+  completedAt: 'completedAt',
+  quarantineRequired: 'quarantineRequired',
+  quarantinedAt: 'quarantinedAt',
+  errorCode: 'errorCode',
+  originalBody: 'originalBody',
+  originalProperties: 'originalProperties',
+  replayId: 'replayId',
+  replayCount: 'replayCount',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type InboundDeliveryScalarFieldEnum = (typeof InboundDeliveryScalarFieldEnum)[keyof typeof InboundDeliveryScalarFieldEnum]
+
+
 export const LoyaltyProfileScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -1407,20 +1506,6 @@ export type ListStringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMod
 
 
 /**
- * Reference to a field of type 'Tier'
- */
-export type EnumTierFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Tier'>
-    
-
-
-/**
- * Reference to a field of type 'Tier[]'
- */
-export type ListEnumTierFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Tier[]'>
-    
-
-
-/**
  * Reference to a field of type 'Int'
  */
 export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
@@ -1449,6 +1534,41 @@ export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaM
 
 
 /**
+ * Reference to a field of type 'Boolean'
+ */
+export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+/**
+ * Reference to a field of type 'Bytes'
+ */
+export type BytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes'>
+
+
+
+/**
+ * Reference to a field of type 'Bytes[]'
+ */
+export type ListBytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes[]'>
+
+
+
+/**
+ * Reference to a field of type 'Tier'
+ */
+export type EnumTierFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Tier'>
+
+
+
+/**
+ * Reference to a field of type 'Tier[]'
+ */
+export type ListEnumTierFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Tier[]'>
+    
+
+
+/**
  * Reference to a field of type 'Json'
  */
 export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
@@ -1473,13 +1593,6 @@ export type EnumOutboxEventStatusFieldRefInput<$PrismaModel> = FieldRefInputType
  * Reference to a field of type 'OutboxEventStatus[]'
  */
 export type ListEnumOutboxEventStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'OutboxEventStatus[]'>
-    
-
-
-/**
- * Reference to a field of type 'Boolean'
- */
-export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
     
 
 
@@ -1648,6 +1761,7 @@ export type PrismaClientOptions = ({
   queryPlanCacheMaxSize?: number
 }
 export type GlobalOmitConfig = {
+  inboundDelivery?: Prisma.InboundDeliveryOmit
   loyaltyProfile?: Prisma.LoyaltyProfileOmit
   processedEvent?: Prisma.ProcessedEventOmit
   pointsTransaction?: Prisma.PointsTransactionOmit
