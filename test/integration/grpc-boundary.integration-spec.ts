@@ -123,7 +123,7 @@ describe('gRPC boundaries with real PostgreSQL', () => {
     rpc = client.getService<Rpc>('LoyaltyService');
   });
   beforeEach(async () => {
-    await prisma.$executeRaw`TRUNCATE loyalty_profiles, points_transactions, processed_events CASCADE`;
+    await prisma.$executeRaw`TRUNCATE loyalty_profiles, points_transactions, processed_events, gold_upgrade_reservations CASCADE`;
   });
   afterAll(async () => {
     client?.close();
