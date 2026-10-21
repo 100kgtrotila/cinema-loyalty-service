@@ -1,5 +1,11 @@
-import { Controller, UseGuards } from '@nestjs/common';
-import { GrpcMethod } from '@nestjs/microservices';
+import {
+  GrpcRequestPipe,
+  userRequestSchema,
+  achievementIdSchema,
+} from '../common/grpc-request.pipe';
+import { GrpcExceptionFilter } from '../common/grpc-exception.filter';
+import { Controller, UseGuards, UseFilters } from '@nestjs/common';
+import { GrpcMethod, Payload } from '@nestjs/microservices';
 import { AdminAchievementsService } from './admin-achievements.service';
 import { AchievementsService } from './achievements.service';
 import type {
@@ -13,6 +19,7 @@ import { GrpcApiKeyGuard } from 'src/guards/grpc-api-key.guard';
 
 @Controller()
 @UseGuards(GrpcApiKeyGuard)
+@UseFilters(GrpcExceptionFilter)
 export class AchievementsController {
   constructor(
     private readonly adminService: AdminAchievementsService,
@@ -25,12 +32,18 @@ export class AchievementsController {
   }
 
   @GrpcMethod('AchievementsService', 'UpdateAchievement')
-  async updateAchievement(data: UpdateAchievementRequest) {
+  async updateAchievement(
+    @Payload(new GrpcRequestPipe(achievementIdSchema))
+    data: UpdateAchievementRequest,
+  ) {
     return this.adminService.updateAchievementGrpc(data);
   }
 
   @GrpcMethod('AchievementsService', 'DeleteAchievement')
-  async deleteAchievement(data: DeleteAchievementRequest) {
+  async deleteAchievement(
+    @Payload(new GrpcRequestPipe(achievementIdSchema))
+    data: DeleteAchievementRequest,
+  ) {
     return this.adminService.deleteAchievementGrpc(data);
   }
 
@@ -40,7 +53,10 @@ export class AchievementsController {
   }
 
   @GrpcMethod('AchievementsService', 'GetUserAchievements')
-  async getUserAchievements(data: GetUserAchievementsRequest) {
+  async getUserAchievements(
+    @Payload(new GrpcRequestPipe(userRequestSchema))
+    data: GetUserAchievementsRequest,
+  ) {
     return this.userService.getUserAchievementsGrpc(data);
   }
 }
