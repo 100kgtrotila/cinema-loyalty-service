@@ -4,70 +4,80 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { ConfigService } from '@nestjs/config';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
 import { AppConfig } from './interfaces/app-config.inteface';
 import { getCorsConfig } from './config/cors.config';
 
-const PROTO_RELATIVE_PATH = 'proto/loyalty/v1/loyalty.proto';
-
-function resolveProtoPath(): string {
-  const candidates = [
-    join(process.cwd(), 'src', PROTO_RELATIVE_PATH),
-    join(process.cwd(), 'dist', PROTO_RELATIVE_PATH),
-    join(__dirname, '..', PROTO_RELATIVE_PATH),
-    join(__dirname, PROTO_RELATIVE_PATH),
-  ];
-
-  return candidates.find((path) => existsSync(path)) ?? candidates[0];
+export function resolveProtoPath(): string {
+  // Nest CLI copies src/proto to dist/proto; both are relative to this module.
+  const protoPath = join(__dirname, 'proto/loyalty/v1/loyalty.proto');
+  if (!existsSync(protoPath)) {
+    throw new Error(
+      'Loyalty protobuf asset is missing; restore src/proto or run bun run build.',
+    );
+  }
+  return protoPath;
 }
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
-  const configService = app.get(ConfigService);
-  const appConfig = configService.get<AppConfig>('app')!;
-
+export async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
+  let app: INestApplication | undefined;
+  let stage = 'dependency creation';
+  try {
+    app = await NestFactory.create(AppModule, { abortOnError: false });
+    const configService = app.get(ConfigService);
+    const appConfig = configService.getOrThrow<AppConfig>('app');
+    const frontendUrl = configService.get<string>('FRONTEND_URL');
+    app.enableCors(getCorsConfig(frontendUrl ?? 'http://localhost:3000'));
+    app.enableShutdownHooks();
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
 
-  const frontendUrl = configService.get<string>('FRONTEND_URL');
-  app.enableCors(getCorsConfig(frontendUrl!));
-  app.enableShutdownHooks();
-
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-    }),
-  );
-
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.GRPC,
-    options: {
-      package: 'loyalty.v1',
-      protoPath: resolveProtoPath(),
-      url: appConfig.grpcUrl,
-    },
-  });
-
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.RMQ,
-    options: {
-      urls: [appConfig.rmqUrl],
-      queue: appConfig.rmqQueue,
-      queueOptions: {
-        durable: true,
+    stage = 'protobuf asset validation (restore src/proto or rebuild dist)';
+    const protoPath = resolveProtoPath();
+    app.connectMicroservice<MicroserviceOptions>({
+      transport: Transport.GRPC,
+      options: { package: 'loyalty.v1', protoPath, url: appConfig.grpcUrl },
+    });
+    app.connectMicroservice<MicroserviceOptions>({
+      transport: Transport.RMQ,
+      options: {
+        urls: [appConfig.rmqUrl],
+        queue: appConfig.rmqQueue,
+        queueOptions: { durable: true },
+        noAck: false,
       },
-      noAck: false,
-    },
-  });
+    });
 
-  await app.startAllMicroservices();
-  app.enableCors();
-  await app.listen(appConfig.port);
+    // Hybrid transports otherwise listen before the application's init/bootstrap
+    // hooks (Prisma, schedules and @OnEvent subscriptions) have completed.
+    stage = 'application initialization';
+    await app.init();
+    stage = 'microservice startup';
+    await app.startAllMicroservices();
+    stage = 'HTTP startup';
+    await app.listen(appConfig.port);
 
-  logger.log(`HTTP Server is running on port: ${appConfig.port}`);
-  logger.log(`gRPC Microservice is listening on: ${appConfig.grpcUrl}`);
-  logger.log(`RMQ Microservice is connected to queue: ${appConfig.rmqQueue}`);
+    logger.log(`HTTP Server is running on port: ${appConfig.port}`);
+    logger.log(`gRPC Microservice is listening on: ${appConfig.grpcUrl}`);
+    logger.log(`RMQ Microservice is connected to queue: ${appConfig.rmqQueue}`);
+  } catch (error: unknown) {
+    // Connection errors can contain credentials; report the controlled phase only.
+    logger.error(`Application startup failed during ${stage}.`);
+    if (app) {
+      try {
+        await app.close();
+      } catch {
+        logger.error('Application cleanup after failed startup failed.');
+      }
+    }
+    throw error;
+  }
 }
 
-bootstrap();
+if (require.main === module) {
+  void bootstrap().catch(() => {
+    process.exit(1);
+  });
+}
