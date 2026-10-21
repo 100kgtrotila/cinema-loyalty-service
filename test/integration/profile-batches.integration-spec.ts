@@ -203,8 +203,9 @@ describe('Profile batch traversal on PostgreSQL', () => {
       ],
     );
     await expiration.notifyExpiringUsers();
-    expect(notifiedUsers.sort()).toEqual(
-      candidates.map((profile) => profile.userId).sort(),
+    const compareIds = (a: string, b: string) => a.localeCompare(b);
+    expect([...notifiedUsers].sort(compareIds)).toEqual(
+      candidates.map((profile) => profile.userId).sort(compareIds),
     );
     await expectProfiles(excluded, {});
     await expiration.notifyExpiringUsers();
