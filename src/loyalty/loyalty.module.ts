@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ClientsModule } from '@nestjs/microservices';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LoyaltyService } from './loyalty.service';
@@ -30,7 +29,6 @@ import { RmqDeliveryService } from './consumers/rmq-delivery.service';
     ConfigModule,
     PrismaModule,
     ScheduleModule.forRoot(),
-    EventEmitterModule.forRoot(),
     AchievementsModule,
     // BULL MQ
     BullModule.forRootAsync({
