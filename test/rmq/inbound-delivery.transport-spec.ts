@@ -1,3 +1,4 @@
+import { EventPatternType } from 'src/loyalty/enums/loyalty.enums';
 import { ConfigService } from '@nestjs/config';
 import { connect, ChannelModel, ConfirmChannel, Options } from 'amqplib';
 import { fork, ChildProcess, spawn } from 'node:child_process';
@@ -228,7 +229,7 @@ describe('Inbound reliability on real PostgreSQL and RabbitMQ', () => {
 
   async function send(
     data: unknown,
-    pattern = 'TicketPurchased',
+    pattern = EventPatternType.TICKET_PURCHASED,
     properties: Options.Publish = {},
   ) {
     const body = Buffer.from(JSON.stringify({ pattern, data }));
@@ -316,7 +317,7 @@ describe('Inbound reliability on real PostgreSQL and RabbitMQ', () => {
       JSON.stringify({ queue: queueInfo, consumers }, null, 2),
     );
     const data = purchase(2147483648);
-    const message = await send(data, 'TicketPurchased', {
+    const message = await send(data, EventPatternType.TICKET_PURCHASED, {
       messageId: data.eventId,
       correlationId: 'fixture-correlation',
       headers: { custom: 'preserved' },
@@ -421,13 +422,13 @@ describe('Inbound reliability on real PostgreSQL and RabbitMQ', () => {
   it('counts a crash on the final admitted attempt and quarantines after restart', async () => {
     const data = purchase();
     const body = Buffer.from(
-      JSON.stringify({ pattern: 'TicketPurchased', data }),
+      JSON.stringify({ pattern: EventPatternType.TICKET_PURCHASED, data }),
     );
     const id = inboundDeliveryId(queue, body);
     await prisma.inboundDelivery.create({
       data: {
         id,
-        operation: 'TicketPurchased',
+        operation: EventPatternType.TICKET_PURCHASED,
         sourceQueue: queue,
         attempts: 2,
       },
@@ -629,7 +630,7 @@ describe('Inbound reliability on real PostgreSQL and RabbitMQ', () => {
   it('replays with the original envelope and stable replay ID without a second budget reset or reward', async () => {
     const first = await startWorker({ fault: 'permanent' });
     const data = purchase();
-    const message = await send(data, 'TicketPurchased', {
+    const message = await send(data, EventPatternType.TICKET_PURCHASED, {
       messageId: data.eventId,
       correlationId: 'original-correlation',
       headers: { custom: 'preserved' },
@@ -679,7 +680,10 @@ describe('Inbound reliability on real PostgreSQL and RabbitMQ', () => {
     await channel.waitForConfirms();
   });
 
-  it.each(['TicketPurchased', 'UserDateOfBirthSet'])(
+  it.each([
+    EventPatternType.TICKET_PURCHASED,
+    EventPatternType.USER_DATE_OF_BIRTH_SET,
+  ])(
     'quarantines invalid %s payload without raw validation values in logs',
     async (pattern) => {
       await startWorker();
@@ -692,7 +696,7 @@ describe('Inbound reliability on real PostgreSQL and RabbitMQ', () => {
       expect(await quarantined(message.id)).toMatchObject({
         attempts: 1,
         errorCode:
-          pattern === 'TicketPurchased'
+          pattern === EventPatternType.TICKET_PURCHASED
             ? 'INVALID_PURCHASE_PAYLOAD'
             : 'INVALID_DOB_PAYLOAD',
       });
@@ -708,7 +712,7 @@ describe('Inbound reliability on real PostgreSQL and RabbitMQ', () => {
       userName: 'PRIVATE_NAME',
       extra: 'PRIVATE_EXTRA',
     };
-    const message = await send(data, 'UserDateOfBirthSet');
+    const message = await send(data, EventPatternType.USER_DATE_OF_BIRTH_SET);
     await completed(message.id);
     expect(
       (
@@ -725,7 +729,7 @@ describe('Inbound reliability on real PostgreSQL and RabbitMQ', () => {
         dateOfBirth: '1990-02-31',
         userEmail: 'private@example.invalid',
       },
-      'UserDateOfBirthSet',
+      EventPatternType.USER_DATE_OF_BIRTH_SET,
     );
     expect(await quarantined(message.id)).toMatchObject({
       attempts: 1,
@@ -745,7 +749,7 @@ describe('Inbound reliability on real PostgreSQL and RabbitMQ', () => {
         dateOfBirth: '1990-05-17',
         userEmail: 'private@example.invalid',
       },
-      'UserDateOfBirthSet',
+      EventPatternType.USER_DATE_OF_BIRTH_SET,
     );
     expect(await quarantined(message.id)).toMatchObject({
       attempts: 3,
@@ -760,7 +764,10 @@ describe('Inbound reliability on real PostgreSQL and RabbitMQ', () => {
       '1991-06-18',
       '1990-05-17',
     ].entries()) {
-      await send({ userId, dateOfBirth }, 'UserDateOfBirthSet');
+      await send(
+        { userId, dateOfBirth },
+        EventPatternType.USER_DATE_OF_BIRTH_SET,
+      );
       await until(
         () =>
           worker.messages.filter((value) => value.kind === 'handled').length,

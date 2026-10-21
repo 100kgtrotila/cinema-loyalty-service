@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { Pool } from 'pg';
 import Redis from 'ioredis';
 import { connect } from 'amqplib';
+import { EventPatternType } from 'src/loyalty/enums/loyalty.enums';
 import { inboundDeliveryId } from 'src/loyalty/consumers/rmq-delivery.service';
 
 // cinema-platform-back domain enums; order and ticket states are distinct.
@@ -877,13 +878,16 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
       ]),
     });
   });
-  it.each(['TicketPurchased', 'UserDateOfBirthSet'])(
+  it.each([
+    EventPatternType.TICKET_PURCHASED,
+    EventPatternType.USER_DATE_OF_BIRTH_SET,
+  ])(
     'durably quarantines malformed %s in the production Nest consumer without blocking later events',
     async (pattern) => {
       const invalidUserId = randomUUID();
       const eventId = randomUUID();
       const payload =
-        pattern === 'TicketPurchased'
+        pattern === EventPatternType.TICKET_PURCHASED
           ? {
               eventId,
               orderId: eventId,
@@ -964,7 +968,7 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
           attempts: 1,
           completed_at: null,
           error_code:
-            pattern === 'TicketPurchased'
+            pattern === EventPatternType.TICKET_PURCHASED
               ? 'INVALID_PURCHASE_PAYLOAD'
               : 'INVALID_DOB_PAYLOAD',
           original_body: envelope,
@@ -1003,6 +1007,45 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
         // boundary; no metadata stripping, poison-message loop or process restart.
         const healthyUserId = randomUUID();
         const healthyOrderId = randomUUID();
+        if (pattern === EventPatternType.USER_DATE_OF_BIRTH_SET) {
+          const dateOfBirth = new Date(
+            Date.UTC(2000, (new Date().getUTCMonth() + 6) % 12, 15),
+          )
+            .toISOString()
+            .slice(0, 10);
+          const dobEnvelope = Buffer.from(
+            JSON.stringify({
+              pattern: EventPatternType.USER_DATE_OF_BIRTH_SET,
+              data: {
+                userId: healthyUserId,
+                dateOfBirth,
+                occurredAtUtc: new Date().toISOString(),
+              },
+            }),
+          );
+          channel.sendToQueue('loyalty_ticket_purchased', dobEnvelope, {
+            persistent: true,
+          });
+          await channel.waitForConfirms();
+          await eventually(
+            async () =>
+              (
+                await loyalty.query(
+                  'SELECT id FROM inbound_deliveries WHERE id=$1 AND completed_at IS NOT NULL',
+                  [inboundDeliveryId('loyalty_ticket_purchased', dobEnvelope)],
+                )
+              ).rowCount === 1,
+            'valid canonical DOB event commits',
+          );
+          expect(
+            (
+              await loyalty.query(
+                'SELECT birthday_date::text FROM loyalty_profiles WHERE user_id=$1',
+                [healthyUserId],
+              )
+            ).rows[0],
+          ).toEqual({ birthday_date: dateOfBirth });
+        }
         const healthy = Buffer.from(
           JSON.stringify({
             pattern: 'TicketPurchased',
@@ -1054,7 +1097,9 @@ describe('Monolith HTTP → loyalty gRPC/RabbitMQ → achievement delivery', () 
         await eventually(async () => {
           const state = await queueState();
           return (
-            state.ack >= beforeAck + 2 &&
+            state.ack >=
+              beforeAck +
+                (pattern === EventPatternType.USER_DATE_OF_BIRTH_SET ? 3 : 2) &&
             state.unacked === 0 &&
             state.ready === 0
           );
