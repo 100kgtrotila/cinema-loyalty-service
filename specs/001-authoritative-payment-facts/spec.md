@@ -78,6 +78,7 @@ Loyalty отримує збережений результат конкретн�
 | --- | --- |
 | FR-001/002/003/006/009 | B.1, H-1, I; I-14 та paidAt частина I-15 |
 | FR-004/005/008 | F Stage 1, I; I-06/I-25/I-28 збережені на відповідній стороні |
+| FR-007 | Master specification, Section I, exit criterion 5: loyalty fact не залежить від email notification availability |
 | FR-010 | I-07/I-26/I-27/I-29 збережені, не нова реалізація цих механізмів |
 
 Не заявляти повного виконання I-13/I-15: session-completion earning і pre-payment reservations тут не реалізуються.
